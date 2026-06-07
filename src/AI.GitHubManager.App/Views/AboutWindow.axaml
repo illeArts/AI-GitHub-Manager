@@ -1,0 +1,97 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="AI.GitHubManager.App.Views.AboutWindow"
+        Width="440" Height="620"
+        CanResize="False"
+        SystemDecorations="None"
+        WindowStartupLocation="CenterOwner"
+        Background="Transparent"
+        TransparencyLevelHint="Transparent">
+
+  <!-- Outer shadow wrapper -->
+  <Border Margin="8" CornerRadius="14"
+          Background="#0d1320"
+          BoxShadow="0 8 40 8 #A0000000">
+
+    <Grid RowDefinitions="44,*">
+
+      <!-- Custom title bar -->
+      <Grid ColumnDefinitions="*,Auto" Margin="18,0"
+            PointerPressed="OnTitleBarPressed">
+        <TextBlock Text="Über" VerticalAlignment="Center"
+                   Foreground="#6677aa" FontSize="13" />
+        <Button Grid.Column="1"
+                Content="✕"
+                Background="Transparent"
+                Foreground="#6677aa"
+                BorderThickness="0"
+                Padding="8,4"
+                FontSize="14"
+                VerticalAlignment="Center"
+                Click="OnClose"
+                Cursor="Hand" />
+      </Grid>
+
+      <!-- Content -->
+      <StackPanel Grid.Row="1" HorizontalAlignment="Center"
+                  Margin="32,0,32,28">
+
+        <!-- Circular profile photo -->
+        <Border CornerRadius="64" Width="128" Height="128"
+                ClipToBounds="True"
+                HorizontalAlignment="Center"
+                Margin="0,0,0,18"
+                BorderBrush="#1e2d45" BorderThickness="3">
+          <Image Source="avares://AI.GitHubManager.App/Assets/profile.jpg"
+                 Stretch="UniformToFill" />
+        </Border>
+
+        <!-- Name -->
+        <TextBlock Text="André Iljaschow"
+                   FontSize="22" FontWeight="Bold"
+                   Foreground="White"
+                   HorizontalAlignment="Center" />
+
+        <!-- Subtitle -->
+        <TextBlock Text="illeArts  ·  AI Developer"
+                   FontSize="13" Foreground="#5566aa"
+                   HorizontalAlignment="Center"
+                   Margin="0,5,0,18" />
+
+        <!-- Divider -->
+        <Rectangle Height="1" Fill="#1a2540" Margin="0,0,0,14" />
+
+        <!-- Tags row -->
+        <WrapPanel HorizontalAlignment="Center" Margin="0,0,0,14">
+          <TextBlock Text="GitHub  ·  git  ·  gh CLI  ·  Avalonia  ·  .NET 8"
+                     Foreground="#4dabf7" FontSize="13"
+                     VerticalAlignment="Center" />
+        </WrapPanel>
+
+        <!-- Description -->
+        <TextBlock TextWrapping="Wrap" TextAlignment="Center"
+                   Foreground="#4a5a7a" FontSize="12"
+                   LineHeight="19"
+                   Margin="0,0,0,18"
+                   Text="AI GitHub Manager — sicheres, einfaches GitHub-Management für alle deine Projekte. Push, Pull, Diagnose und GitHub CLI-Setup auf einen Klick. Läuft auf Windows und macOS." />
+
+        <!-- Divider -->
+        <Rectangle Height="1" Fill="#1a2540" Margin="0,0,0,20" />
+
+        <!-- Logo centered above version -->
+        <Image Source="avares://AI.GitHubManager.App/Assets/logo.png"
+               Width="260"
+               Stretch="Uniform"
+               HorizontalAlignment="Center"
+               RenderOptions.BitmapInterpolationMode="HighQuality"
+               Margin="0,0,0,16" />
+
+        <!-- Version -->
+        <TextBlock x:Name="VersionText"
+                   FontSize="12" Foreground="#2e3d55"
+                   HorizontalAlignment="Center"
+                   Margin="0,0,0,8" />
+      </StackPanel>
+    </Grid>
+  </Border>
+</Window>

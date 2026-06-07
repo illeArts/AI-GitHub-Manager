@@ -1,0 +1,168 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="AI.GitHubManager.App.Views.MainWindow"
+        Title="AI GitHub Manager"
+        Width="1150"
+        Height="720"
+        MinWidth="900"
+        MinHeight="560"
+        Icon="avares://AI.GitHubManager.App/Assets/logo.png">
+
+  <DockPanel>
+
+    <!-- ── Menu bar ──────────────────────────────────────────────────── -->
+    <Menu x:Name="MainMenuBar" DockPanel.Dock="Top" Background="#181c24" Padding="4,2">
+      <MenuItem x:Name="MenuSettings"
+                Header="{Binding Strings.MenuSettingsHeader}"
+                Click="OnSettingsClick"
+                Foreground="#d0d6e0" />
+      <MenuItem x:Name="MenuHelp"
+                Header="{Binding Strings.MenuHelpHeader}"
+                Foreground="#d0d6e0">
+        <MenuItem x:Name="MenuHelpItem"
+                  Header="{Binding Strings.MenuHelpItemHeader}"
+                  Click="OnHelpClick" />
+        <Separator />
+        <MenuItem x:Name="MenuAbout"
+                  Header="{Binding Strings.MenuAboutHeader}"
+                  Click="OnAboutClick" />
+      </MenuItem>
+    </Menu>
+
+    <!-- ── Main grid ─────────────────────────────────────────────────── -->
+    <Grid RowDefinitions="Auto,*" ColumnDefinitions="280,*" Margin="16">
+
+      <!-- Header -->
+      <Border Grid.ColumnSpan="2" Padding="16" CornerRadius="14"
+              Background="#20242b" Margin="0,0,0,12">
+        <StackPanel>
+          <TextBlock Text="AI GitHub Manager"
+                     FontSize="26" FontWeight="Bold" Foreground="White" />
+          <TextBlock Text="{Binding Strings.AppSubtitle}"
+                     Foreground="#d0d6e0" />
+        </StackPanel>
+      </Border>
+
+      <!-- Left panel: project list -->
+      <Border Grid.Row="1" Grid.Column="0"
+              Padding="12" CornerRadius="12"
+              BorderBrush="#3b4250" BorderThickness="1"
+              Margin="0,0,12,0">
+        <DockPanel LastChildFill="True">
+
+          <TextBlock DockPanel.Dock="Top"
+                     Text="{Binding Strings.ProjectsHeader}"
+                     FontSize="18" FontWeight="SemiBold" Margin="0,0,0,8" />
+
+          <!-- Add / Remove row -->
+          <Grid DockPanel.Dock="Top" ColumnDefinitions="*,*" Margin="0,0,0,10">
+            <Button Grid.Column="0"
+                    Content="{Binding Strings.AddProject}"
+                    Command="{Binding AddProjectCommand}"
+                    Margin="0,0,4,0" HorizontalAlignment="Stretch" />
+            <Button Grid.Column="1"
+                    Content="{Binding Strings.RemoveProject}"
+                    Command="{Binding RemoveProjectCommand}"
+                    Margin="4,0,0,0" HorizontalAlignment="Stretch" />
+          </Grid>
+
+          <!-- Bottom action buttons -->
+          <StackPanel DockPanel.Dock="Bottom" Margin="0,12,0,0">
+            <Button Content="{Binding Strings.ImportGitHub}"
+                    Command="{Binding ImportGitHubReposCommand}"    Margin="0,0,0,8" />
+            <Button Content="{Binding Strings.InstallCli}"
+                    Command="{Binding InstallGitHubCliCommand}"     Margin="0,0,0,8" />
+            <Button Content="{Binding Strings.GitHubLogin}"
+                    Command="{Binding LoginGitHubCommand}"          Margin="0,0,0,8" />
+            <Button Content="{Binding Strings.CheckEnv}"
+                    Command="{Binding CheckEnvironmentCommand}"     Margin="0,0,0,8" />
+            <Button Content="{Binding Strings.RefreshScope}"
+                    Command="{Binding RefreshWorkflowScopeCommand}" Margin="0,0,0,8" />
+            <Button Content="{Binding Strings.RepairGit}"
+                    Command="{Binding SetupGitCommand}"             Margin="0,0,0,8" />
+            <Button Content="{Binding Strings.SaveProject}"
+                    Command="{Binding SaveProjectCommand}" />
+          </StackPanel>
+
+          <ListBox ItemsSource="{Binding Projects}" SelectedItem="{Binding SelectedProject}">
+            <ListBox.ItemTemplate>
+              <DataTemplate>
+                <StackPanel Margin="4">
+                  <TextBlock Text="{Binding Name}"  FontWeight="SemiBold" />
+                  <TextBlock Text="{Binding Owner}" FontSize="12" Opacity="0.7" />
+                </StackPanel>
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+        </DockPanel>
+      </Border>
+
+      <!-- Right panel -->
+      <Grid Grid.Row="1" Grid.Column="1" RowDefinitions="Auto,Auto,*">
+
+        <!-- Path + actions -->
+        <Border Padding="12" CornerRadius="12"
+                BorderBrush="#3b4250" BorderThickness="1" Margin="0,0,0,12">
+          <StackPanel>
+            <TextBlock Text="{Binding Strings.LocalLinkHeader}"
+                       FontSize="18" FontWeight="SemiBold" Margin="0,0,0,8" />
+
+            <!-- LocalPath row with folder picker button -->
+            <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,8">
+              <TextBox Grid.Column="0"
+                       Watermark="{Binding Strings.PathWatermark}"
+                       Text="{Binding LocalPath}" />
+              <Button Grid.Column="1"
+                      Content="{Binding Strings.PickFolder}"
+                      Command="{Binding PickFolderCommand}"
+                      Margin="8,0,0,0" />
+            </Grid>
+
+            <TextBox Watermark="{Binding Strings.CommitWatermark}"
+                     Text="{Binding CommitMessage}" Margin="0,0,0,8" />
+
+            <WrapPanel>
+              <Button Content="{Binding Strings.StatusBtn}"
+                      Command="{Binding GitStatusCommand}"   Margin="0,0,8,0" />
+              <Button Content="{Binding Strings.PullBtn}"
+                      Command="{Binding PullCommand}"        Margin="0,0,8,0" />
+              <Button Content="{Binding Strings.CommitPushBtn}"
+                      Command="{Binding CommitPushCommand}"  Margin="0,0,8,0" />
+            </WrapPanel>
+          </StackPanel>
+        </Border>
+
+        <!-- Info banner -->
+        <Border Grid.Row="1" Padding="12,10" CornerRadius="10"
+                Background="#181c24" BorderBrush="#2a3a50" BorderThickness="1"
+                Margin="0,0,0,12">
+          <Grid ColumnDefinitions="22,*">
+            <TextBlock Grid.Column="0" Text="🔒"
+                       FontSize="13" VerticalAlignment="Top"
+                       Margin="0,1,0,0" Opacity="0.6" />
+            <TextBlock Grid.Column="1"
+                       Text="{Binding Strings.InfoBanner}"
+                       TextWrapping="Wrap"
+                       Foreground="#6a7f9a" FontSize="12"
+                       LineHeight="18" />
+          </Grid>
+        </Border>
+
+        <!-- Log output -->
+        <Border Grid.Row="2" Padding="12" CornerRadius="12"
+                BorderBrush="#3b4250" BorderThickness="1">
+          <DockPanel LastChildFill="True">
+            <TextBlock DockPanel.Dock="Top"
+                       Text="{Binding Strings.OutputHeader}"
+                       FontSize="18" FontWeight="SemiBold" Margin="0,0,0,10" />
+            <TextBox Text="{Binding Log}"
+                     AcceptsReturn="True" IsReadOnly="True"
+                     TextWrapping="Wrap"
+                     FontFamily="Consolas, Menlo, monospace" />
+          </DockPanel>
+        </Border>
+      </Grid>
+    </Grid>
+
+  </DockPanel>
+</Window>

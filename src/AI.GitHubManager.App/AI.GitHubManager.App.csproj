@@ -1,0 +1,52 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>AI.GitHubManager.App</AssemblyName>
+    <RootNamespace>AI.GitHubManager.App</RootNamespace>
+    <Version>1.2.0</Version>
+    <AssemblyVersion>1.2.0.0</AssemblyVersion>
+    <FileVersion>1.2.0.0</FileVersion>
+  </PropertyGroup>
+
+  <!-- Windows: suppress console window, add manifest, COM support, and .ico -->
+  <PropertyGroup Condition="$([MSBuild]::IsOSPlatform('Windows'))">
+    <OutputType>WinExe</OutputType>
+    <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Assets\app.ico</ApplicationIcon>
+  </PropertyGroup>
+
+  <!-- macOS / Linux: standard executable -->
+  <PropertyGroup Condition="!$([MSBuild]::IsOSPlatform('Windows'))">
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+
+  <!-- macOS app bundle metadata (used by Avalonia's macOS publish pipeline) -->
+  <PropertyGroup Condition="$([MSBuild]::IsOSPlatform('OSX'))">
+    <CFBundleName>AI GitHub Manager</CFBundleName>
+    <CFBundleDisplayName>AI GitHub Manager</CFBundleDisplayName>
+    <CFBundleIdentifier>com.illearts.AIGitHubManager</CFBundleIdentifier>
+    <CFBundleVersion>1.0.0</CFBundleVersion>
+    <CFBundleShortVersionString>1.0</CFBundleShortVersionString>
+    <NSHumanReadableCopyright>© 2026 illeArts</NSHumanReadableCopyright>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia"              Version="11.2.3" />
+    <PackageReference Include="Avalonia.Desktop"      Version="11.2.3" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.2.3" />
+    <PackageReference Include="Avalonia.Fonts.Inter"  Version="11.2.3" />
+  </ItemGroup>
+
+  <!-- Embed Assets as Avalonia resources (logo, profile picture, icon) -->
+  <ItemGroup>
+    <AvaloniaResource Include="Assets\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\AI.GitHubManager.Core\AI.GitHubManager.Core.csproj" />
+    <ProjectReference Include="..\AI.GitHubManager.Data\AI.GitHubManager.Data.csproj" />
+  </ItemGroup>
+</Project>

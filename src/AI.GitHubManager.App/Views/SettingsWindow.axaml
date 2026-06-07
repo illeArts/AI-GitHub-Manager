@@ -1,0 +1,52 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="AI.GitHubManager.App.Views.SettingsWindow"
+        Width="400" Height="260"
+        CanResize="False"
+        WindowStartupLocation="CenterOwner"
+        Icon="avares://AI.GitHubManager.App/Assets/logo.png">
+
+  <Grid RowDefinitions="Auto,*,Auto" Margin="24">
+
+    <!-- Title -->
+    <TextBlock Grid.Row="0"
+               x:Name="TitleText"
+               FontSize="20" FontWeight="Bold"
+               Foreground="White" Margin="0,0,0,20" />
+
+    <!-- Settings -->
+    <StackPanel Grid.Row="1" Spacing="20">
+
+      <!-- Language -->
+      <StackPanel Spacing="8">
+        <TextBlock x:Name="LangLabel"
+                   Foreground="#8899aa" FontSize="13" />
+        <StackPanel Orientation="Horizontal" Spacing="16">
+          <RadioButton x:Name="LangDe"
+                       Content="🇩🇪  Deutsch"
+                       GroupName="Language"
+                       Foreground="White"
+                       IsChecked="True"
+                       Checked="OnLanguageChanged" />
+          <RadioButton x:Name="LangEn"
+                       Content="🇬🇧  English"
+                       GroupName="Language"
+                       Foreground="White"
+                       Checked="OnLanguageChanged" />
+        </StackPanel>
+        <TextBlock x:Name="LangNote"
+                   Foreground="#445566" FontSize="11"
+                   Margin="0,2,0,0" />
+      </StackPanel>
+
+    </StackPanel>
+
+    <!-- Save / Close buttons -->
+    <StackPanel Grid.Row="2" Orientation="Horizontal"
+                HorizontalAlignment="Right" Spacing="10" Margin="0,16,0,0">
+      <Button x:Name="CancelButton" Click="OnCancel" />
+      <Button x:Name="SaveButton"   Click="OnSave"
+              Background="#2563eb" Foreground="White" />
+    </StackPanel>
+  </Grid>
+</Window>

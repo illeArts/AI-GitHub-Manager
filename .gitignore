@@ -1,0 +1,48 @@
+bin/
+obj/
+dist/
+publish/
+.vs/
+.idea/
+*.user
+*.suo
+.DS_Store
+
+# Ad-hoc scripts & temp files (should never land in the repo)
+*.bat
+*.cmd
+*.ps1
+*.tmp
+*.bak
+*.orig
+*.log
+*.swp
+
+# Scratch / HTTP-response dump files (no extension, short names)
+400
+404
+500
+valid
+invalid
+response
+output
+temp
+test
+
+# Generated reports / local HTML exports at repo root
+*.html
+*.htm
+
+# Cleanup helpers
+cleanup_git.*
+ 
+# Temporaere Garbage-Files 
+400 
+404 
+valid 
+AAIA_Statusbericht.html 
+do_commit.bat 
+run_git_commit.bat 
+git_commit_extension.ps1 
+cleanup_git.bat 
+cleanup_git.ps1 
