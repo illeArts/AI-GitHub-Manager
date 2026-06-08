@@ -6,7 +6,18 @@ publish/
 .idea/
 *.user
 *.suo
+
+# macOS metadata and local system folders
 .DS_Store
+._*
+.localized
+.Trash/
+.Spotlight-V100/
+.Trashes/
+.fseventsd/
+.TemporaryItems/
+.VolumeIcon.icns
+Icon?
 
 # Ad-hoc scripts & temp files (should never land in the repo)
 *.bat
