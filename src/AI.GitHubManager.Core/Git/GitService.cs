@@ -40,14 +40,32 @@ public sealed class GitService
         return new GitStatusResult(true, branch.StandardOutput.Trim(), remoteOrigin, status.StandardOutput, files, error);
     }
 
-    public async Task<CommandResult> PullAsync(string repositoryPath, CancellationToken cancellationToken = default)
+    public Task<CommandResult> PullAsync(string repositoryPath, CancellationToken cancellationToken = default)
+        => PullAsync(repositoryPath, null, null, cancellationToken);
+
+    public async Task<CommandResult> PullAsync(
+        string repositoryPath,
+        string? defaultBranch = null,
+        string? remoteUrl = null,
+        CancellationToken cancellationToken = default)
     {
-        var repositoryCheck = await EnsureRepositoryAsync(repositoryPath, cancellationToken);
+        var repositoryCheck = await EnsureRepositoryAsync(repositoryPath, remoteUrl, cancellationToken);
         if (repositoryCheck is not null) return repositoryCheck;
 
-        var result = await _runner.RunAsync("git", ["pull", "--ff-only"], repositoryPath, cancellationToken);
+        var upstream = await EnsureUpstreamAsync(repositoryPath, defaultBranch, cancellationToken);
+        if (!upstream.Success && !upstream.IsFallbackAvailable)
+            return upstream.Result;
+
+        var branch = await GetCurrentBranchOrDefaultAsync(repositoryPath, defaultBranch, cancellationToken);
+        var result = !upstream.Success && !string.IsNullOrWhiteSpace(branch)
+            ? await _runner.RunAsync("git", ["pull", "--ff-only", "origin", branch], repositoryPath, cancellationToken)
+            : await _runner.RunAsync("git", ["pull", "--ff-only"], repositoryPath, cancellationToken);
+
         if (!result.Success)
         {
+            if (CanRecoverFromUntrackedOverwrite(result) && !string.IsNullOrWhiteSpace(branch))
+                return await RecoverUntrackedOverwriteAndPullAsync(repositoryPath, branch, result, cancellationToken);
+
             var (recovered, fixMsg) = await GitErrorRecovery.TryRecoverAsync(repositoryPath, result.CombinedOutput);
             if (recovered)
             {
@@ -146,7 +164,15 @@ public sealed class GitService
     public Task<CommandResult> SetRemoteOriginAsync(string repositoryPath, string remoteUrl, CancellationToken cancellationToken = default)
         => _runner.RunAsync("git", ["remote", "set-url", "origin", remoteUrl], repositoryPath, cancellationToken);
 
-    private async Task<CommandResult?> EnsureRepositoryAsync(string repositoryPath, CancellationToken cancellationToken)
+    private async Task<CommandResult?> EnsureRepositoryAsync(
+        string repositoryPath,
+        CancellationToken cancellationToken)
+        => await EnsureRepositoryAsync(repositoryPath, null, cancellationToken);
+
+    private async Task<CommandResult?> EnsureRepositoryAsync(
+        string repositoryPath,
+        string? remoteUrl,
+        CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(repositoryPath) || !Directory.Exists(repositoryPath))
             return new CommandResult(-1, string.Empty, "Lokaler Ordner existiert nicht.", "git", string.Empty);
@@ -157,9 +183,110 @@ public sealed class GitService
 
         var remote = await _runner.RunAsync("git", ["remote", "get-url", "origin"], repositoryPath, cancellationToken);
         if (!remote.Success)
-            return new CommandResult(remote.ExitCode, remote.StandardOutput, "Remote 'origin' ist nicht gesetzt.\n" + remote.StandardError, "git", "remote get-url origin");
+        {
+            if (string.IsNullOrWhiteSpace(remoteUrl))
+                return new CommandResult(remote.ExitCode, remote.StandardOutput, "Remote 'origin' ist nicht gesetzt.\n" + remote.StandardError, "git", "remote get-url origin");
+
+            var add = await _runner.RunAsync("git", ["remote", "add", "origin", remoteUrl.Trim()], repositoryPath, cancellationToken);
+            if (!add.Success)
+                return add;
+        }
 
         return null;
+    }
+
+    private async Task<(bool Success, bool IsFallbackAvailable, CommandResult Result)> EnsureUpstreamAsync(
+        string repositoryPath,
+        string? defaultBranch,
+        CancellationToken cancellationToken)
+    {
+        var existing = await _runner.RunAsync(
+            "git",
+            ["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"],
+            repositoryPath,
+            cancellationToken);
+        if (existing.Success)
+            return (true, false, existing);
+
+        var branch = await GetCurrentBranchOrDefaultAsync(repositoryPath, defaultBranch, cancellationToken);
+        if (string.IsNullOrWhiteSpace(branch))
+            return (false, false, existing);
+
+        var fetch = await _runner.RunAsync("git", ["fetch", "origin"], repositoryPath, cancellationToken);
+        if (!fetch.Success)
+            return (false, false, fetch);
+
+        var upstream = await _runner.RunAsync(
+            "git",
+            ["branch", "--set-upstream-to=origin/" + branch, branch],
+            repositoryPath,
+            cancellationToken);
+
+        return upstream.Success ? (true, false, upstream) : (false, true, upstream);
+    }
+
+    private async Task<string> GetCurrentBranchOrDefaultAsync(
+        string repositoryPath,
+        string? defaultBranch,
+        CancellationToken cancellationToken)
+    {
+        var branch = await _runner.RunAsync("git", ["branch", "--show-current"], repositoryPath, cancellationToken);
+        var current = branch.StandardOutput.Trim();
+        return string.IsNullOrWhiteSpace(current) ? defaultBranch?.Trim() ?? string.Empty : current;
+    }
+
+    private static bool CanRecoverFromUntrackedOverwrite(CommandResult result)
+        => !result.Success &&
+           result.CombinedOutput.Contains("untracked working tree files would be overwritten", StringComparison.OrdinalIgnoreCase);
+
+    private async Task<CommandResult> RecoverUntrackedOverwriteAndPullAsync(
+        string repositoryPath,
+        string branch,
+        CommandResult originalPull,
+        CancellationToken cancellationToken)
+    {
+        var head = await _runner.RunAsync("git", ["rev-parse", "--verify", "HEAD"], repositoryPath, cancellationToken);
+        if (head.Success)
+            return originalPull;
+
+        var reset = await _runner.RunAsync("git", ["reset", "--mixed", "origin/" + branch], repositoryPath, cancellationToken);
+        if (!reset.Success)
+            return CombineRecoveryResult(originalPull, reset, "Auto-Recovery fehlgeschlagen.");
+
+        var upstream = await _runner.RunAsync(
+            "git",
+            ["branch", "--set-upstream-to=origin/" + branch, branch],
+            repositoryPath,
+            cancellationToken);
+
+        var pull = await _runner.RunAsync("git", ["pull", "--ff-only"], repositoryPath, cancellationToken);
+
+        var output =
+            "Auto-Recovery ausgeführt: Lokaler Branch hatte noch keinen Commit, " +
+            $"deshalb wurde der Index nicht-destruktiv mit origin/{branch} verbunden.\n" +
+            "Lokale Dateiinhalte wurden beibehalten und erscheinen jetzt als normale Änderungen.\n\n" +
+            originalPull.CombinedOutput.Trim() +
+            "\n\n--- Recovery ---\n" +
+            reset.CombinedOutput.Trim() +
+            "\n" +
+            upstream.CombinedOutput.Trim() +
+            "\n\n--- Pull danach ---\n" +
+            pull.CombinedOutput.Trim();
+
+        return new CommandResult(pull.ExitCode, output, string.Empty, "git", "auto-recover-pull");
+    }
+
+    private static CommandResult CombineRecoveryResult(
+        CommandResult original,
+        CommandResult recovery,
+        string message)
+    {
+        var output = message + "\n\n--- Ursprünglicher Pull ---\n" +
+                     original.CombinedOutput.Trim() +
+                     "\n\n--- Recovery ---\n" +
+                     recovery.CombinedOutput.Trim();
+
+        return new CommandResult(recovery.ExitCode, output, string.Empty, "git", "auto-recover-pull");
     }
 
     private async Task<bool> HasUnpushedCommitsAsync(string repositoryPath, CancellationToken cancellationToken)

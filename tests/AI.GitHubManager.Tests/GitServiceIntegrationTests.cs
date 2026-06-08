@@ -86,7 +86,72 @@ public sealed class GitServiceIntegrationTests : IDisposable
         Assert.Contains("Commit und Push übersprungen", result.CombinedOutput);
     }
 
+    [Fact]
+    public async Task PullAsync_AddsMissingOriginFromProjectRemoteUrl()
+    {
+        var remote = CreatePath("remote-without-local-origin.git");
+        var seed = CreatePath("seed-without-local-origin");
+        var repo = CreatePath("repo-without-origin");
+
+        await Git(_root, ["init", "--bare", remote]);
+        await Git(_root, ["clone", remote, seed]);
+        await ConfigureIdentityAsync(seed);
+        await File.WriteAllTextAsync(Path.Combine(seed, "README.md"), "remote");
+        await Git(seed, ["add", "README.md"]);
+        await Git(seed, ["commit", "-m", "Initial"]);
+        await Git(seed, ["branch", "-M", "main"]);
+        await Git(seed, ["push", "-u", "origin", "main"]);
+
+        Directory.CreateDirectory(repo);
+        await Git(repo, ["init"]);
+        await Git(repo, ["branch", "-M", "main"]);
+
+        var service = new GitService(_runner);
+        var result = await service.PullAsync(repo, "main", remote);
+
+        Assert.True(result.Success, result.CombinedOutput);
+        Assert.Equal("remote", await File.ReadAllTextAsync(Path.Combine(repo, "README.md")));
+    }
+
+    [Fact]
+    public async Task PullAsync_RecoversUntrackedOverwriteWhenLocalBranchHasNoCommits()
+    {
+        var remote = CreatePath("remote-untracked-overwrite.git");
+        var seed = CreatePath("seed-untracked-overwrite");
+        var repo = CreatePath("repo-untracked-overwrite");
+
+        await Git(_root, ["init", "--bare", remote]);
+        await Git(_root, ["clone", remote, seed]);
+        await ConfigureIdentityAsync(seed);
+        await File.WriteAllTextAsync(Path.Combine(seed, "README.md"), "remote");
+        await Git(seed, ["add", "README.md"]);
+        await Git(seed, ["commit", "-m", "Initial"]);
+        await Git(seed, ["branch", "-M", "main"]);
+        await Git(seed, ["push", "-u", "origin", "main"]);
+
+        Directory.CreateDirectory(repo);
+        await Git(repo, ["init"]);
+        await Git(repo, ["branch", "-M", "main"]);
+        await File.WriteAllTextAsync(Path.Combine(repo, "README.md"), "local");
+
+        var service = new GitService(_runner);
+        var result = await service.PullAsync(repo, "main", remote);
+
+        Assert.True(result.Success, result.CombinedOutput);
+        Assert.Contains("Auto-Recovery ausgeführt", result.CombinedOutput);
+        Assert.Equal("local", await File.ReadAllTextAsync(Path.Combine(repo, "README.md")));
+
+        var status = await Git(repo, ["status", "--porcelain"]);
+        Assert.Contains("M README.md", status.StandardOutput);
+    }
+
     private string CreatePath(string name) => Path.Combine(_root, name);
+
+    private async Task ConfigureIdentityAsync(string repositoryPath)
+    {
+        await Git(repositoryPath, ["config", "user.email", "tests@example.invalid"]);
+        await Git(repositoryPath, ["config", "user.name", "AI GitHub Manager Tests"]);
+    }
 
     private async Task<CommandResult> Git(string workingDirectory, string[] arguments)
     {

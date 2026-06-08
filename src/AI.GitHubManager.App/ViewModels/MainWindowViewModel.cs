@@ -182,7 +182,7 @@ public sealed class MainWindowViewModel : ViewModelBase
     {
         await Busy(async () =>
         {
-            var result = await _git.PullAsync(LocalPath);
+            var result = await _git.PullAsync(LocalPath, SelectedProject?.DefaultBranch, SelectedProject?.RemoteUrl);
             Log = result.CombinedOutput;
         });
     }
@@ -242,7 +242,16 @@ public sealed class MainWindowViewModel : ViewModelBase
         if (FolderPickerFunc is null) return;
         var path = await FolderPickerFunc();
         if (!string.IsNullOrWhiteSpace(path))
+        {
             LocalPath = path;
+            if (SelectedProject is not null)
+            {
+                ApplyPathToSelectedProject();
+                SelectedProject.UpdatedAt = DateTimeOffset.UtcNow;
+                await _store.SaveAsync(Projects);
+                Log = "Ordner ausgewählt und Projekt gespeichert.";
+            }
+        }
     }
 
     /// <summary>Opens a folder picker, reads git metadata, creates a new ManagedProject and saves it.</summary>
