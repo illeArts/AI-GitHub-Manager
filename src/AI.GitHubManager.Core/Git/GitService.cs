@@ -66,12 +66,26 @@ public sealed class GitService
             if (CanRecoverFromUntrackedOverwrite(result) && !string.IsNullOrWhiteSpace(branch))
                 return await RecoverUntrackedOverwriteAndPullAsync(repositoryPath, branch, result, cancellationToken);
 
-            var (recovered, fixMsg) = await GitErrorRecovery.TryRecoverAsync(repositoryPath, result.CombinedOutput);
-            if (recovered)
+            // Branches have diverged — fast-forward not possible → rebase
+            bool isDiverged = result.CombinedOutput.Contains("Not possible to fast-forward", StringComparison.OrdinalIgnoreCase)
+                           || result.CombinedOutput.Contains("diverged", StringComparison.OrdinalIgnoreCase);
+            if (isDiverged)
             {
-                result = await _runner.RunAsync("git", ["pull", "--ff-only"], repositoryPath, cancellationToken);
-                var prefix = fixMsg + "\n\n";
+                result = await _runner.RunAsync("git", ["pull", "--rebase"], repositoryPath, cancellationToken);
+                var prefix = result.Success
+                    ? "ℹ Branches waren divergiert — Rebase verwendet.\n\n"
+                    : "ℹ Rebase-Versuch nach divergierten Branches fehlgeschlagen.\n\n";
                 result = new CommandResult(result.ExitCode, prefix + result.StandardOutput, result.StandardError, result.FileName, result.Arguments);
+            }
+            else
+            {
+                var (recovered, fixMsg) = await GitErrorRecovery.TryRecoverAsync(repositoryPath, result.CombinedOutput);
+                if (recovered)
+                {
+                    result = await _runner.RunAsync("git", ["pull", "--ff-only"], repositoryPath, cancellationToken);
+                    var prefix = fixMsg + "\n\n";
+                    result = new CommandResult(result.ExitCode, prefix + result.StandardOutput, result.StandardError, result.FileName, result.Arguments);
+                }
             }
         }
         return result;
