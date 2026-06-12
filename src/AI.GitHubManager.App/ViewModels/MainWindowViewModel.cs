@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Windows.Input;
@@ -8,6 +9,7 @@ using AI.GitHubManager.Core.Git;
 using AI.GitHubManager.Core.GitHub;
 using AI.GitHubManager.Core.Process;
 using AI.GitHubManager.Core.Projects;
+using AI.GitHubManager.Core.Update;
 using AI.GitHubManager.Data;
 
 namespace AI.GitHubManager.App.ViewModels;
@@ -18,6 +20,8 @@ public sealed class MainWindowViewModel : ViewModelBase
     private readonly GitService _git;
     private readonly GitHubCliService _gh;
     private readonly EnvironmentCheckService _checks;
+    private readonly SyncPreflightService _preflight;
+    private readonly UpdateCheckService _updateCheck = new();
     private readonly JsonProjectStore _store = new();
 
     private ManagedProject? _selectedProject;
@@ -25,38 +29,39 @@ public sealed class MainWindowViewModel : ViewModelBase
     private string _commitMessage = "Update";
     private string _log = "Bereit.";
     private bool _isBusy;
+    private string _updateNotice = string.Empty;
+    private string? _updateDownloadUrl;
 
-    // All RelayCommand instances stored to allow RaiseCanExecuteChanged
     private RelayCommand[] _allCommands = Array.Empty<RelayCommand>();
 
-    /// <summary>Exposes all localised UI strings. AXAML binds to {Binding Strings.XYZ}.</summary>
     public LocalizedStrings Strings => LocalizedStrings.Instance;
-
-    /// <summary>Set by the View after the window opens. Used for folder picker dialogs.</summary>
     public Func<Task<string?>>? FolderPickerFunc { get; set; }
 
     public MainWindowViewModel()
     {
-        _git = new GitService(_runner);
-        _gh = new GitHubCliService(_runner);
-        _checks = new EnvironmentCheckService(_git, _gh);
+        _git       = new GitService(_runner);
+        _gh        = new GitHubCliService(_runner);
+        _checks    = new EnvironmentCheckService(_git, _gh);
+        _preflight = new SyncPreflightService(_git, _gh);
 
         Projects = new ObservableCollection<ManagedProject>();
 
-        var checkEnv       = new RelayCommand(CheckEnvironmentAsync,      () => !IsBusy);
-        var loadProjects   = new RelayCommand(LoadProjectsAsync,           () => !IsBusy);
-        var saveProject    = new RelayCommand(SaveProjectAsync,            () => !IsBusy);
-        var gitStatus      = new RelayCommand(GitStatusAsync,              () => !IsBusy);
-        var pull           = new RelayCommand(PullAsync,                   () => !IsBusy);
-        var commitPush     = new RelayCommand(CommitPushAsync,             () => !IsBusy);
-        var refreshScope   = new RelayCommand(RefreshWorkflowScopeAsync,   () => !IsBusy);
-        var setupGit       = new RelayCommand(SetupGitAsync,               () => !IsBusy);
-        var loginGitHub    = new RelayCommand(LoginGitHubAsync,            () => !IsBusy);
-        var installCli     = new RelayCommand(InstallGitHubCliAsync,       () => !IsBusy);
-        var pickFolder     = new RelayCommand(PickFolderAsync,             () => !IsBusy);
-        var addProject     = new RelayCommand(AddProjectAsync,             () => !IsBusy);
-        var removeProject  = new RelayCommand(RemoveProjectAsync,          () => SelectedProject != null && !IsBusy);
-        var importGitHub   = new RelayCommand(ImportGitHubReposAsync,      () => !IsBusy);
+        var checkEnv         = new RelayCommand(CheckEnvironmentAsync,      () => !IsBusy);
+        var loadProjects     = new RelayCommand(LoadProjectsAsync,           () => !IsBusy);
+        var saveProject      = new RelayCommand(SaveProjectAsync,            () => !IsBusy);
+        var gitStatus        = new RelayCommand(GitStatusAsync,              () => !IsBusy);
+        var pull             = new RelayCommand(PullAsync,                   () => !IsBusy);
+        var commitPush       = new RelayCommand(CommitPushAsync,             () => !IsBusy);
+        var refreshScope     = new RelayCommand(RefreshWorkflowScopeAsync,   () => !IsBusy);
+        var setupGit         = new RelayCommand(SetupGitAsync,               () => !IsBusy);
+        var loginGitHub      = new RelayCommand(LoginGitHubAsync,            () => !IsBusy);
+        var installCli       = new RelayCommand(InstallGitHubCliAsync,       () => !IsBusy);
+        var pickFolder       = new RelayCommand(PickFolderAsync,             () => !IsBusy);
+        var addProject       = new RelayCommand(AddProjectAsync,             () => !IsBusy);
+        var removeProject    = new RelayCommand(RemoveProjectAsync,          () => SelectedProject != null && !IsBusy);
+        var importGitHub     = new RelayCommand(ImportGitHubReposAsync,      () => !IsBusy);
+        var openUpdate       = new RelayCommand(() => { OpenUpdateDownload(); return Task.CompletedTask; }, () => !string.IsNullOrEmpty(_updateDownloadUrl));
+        var checkUpdateNow   = new RelayCommand(CheckForUpdateAsync,         () => !IsBusy);
 
         CheckEnvironmentCommand     = checkEnv;
         LoadProjectsCommand         = loadProjects;
@@ -72,15 +77,19 @@ public sealed class MainWindowViewModel : ViewModelBase
         AddProjectCommand           = addProject;
         RemoveProjectCommand        = removeProject;
         ImportGitHubReposCommand    = importGitHub;
+        OpenUpdateCommand           = openUpdate;
+        CheckForUpdateCommand       = checkUpdateNow;
 
         _allCommands = new[]
         {
             checkEnv, loadProjects, saveProject, gitStatus, pull,
             commitPush, refreshScope, setupGit, loginGitHub, installCli,
-            pickFolder, addProject, removeProject, importGitHub
+            pickFolder, addProject, removeProject, importGitHub,
+            openUpdate, checkUpdateNow
         };
 
         _ = LoadProjectsAsync();
+        _ = RunStartupUpdateCheckAsync();
     }
 
     // ── Public properties ────────────────────────────────────────────────────
@@ -101,6 +110,8 @@ public sealed class MainWindowViewModel : ViewModelBase
     public ICommand AddProjectCommand           { get; }
     public ICommand RemoveProjectCommand        { get; }
     public ICommand ImportGitHubReposCommand    { get; }
+    public ICommand OpenUpdateCommand           { get; }
+    public ICommand CheckForUpdateCommand       { get; }
 
     public ManagedProject? SelectedProject
     {
@@ -110,15 +121,28 @@ public sealed class MainWindowViewModel : ViewModelBase
             if (SetProperty(ref _selectedProject, value))
             {
                 LocalPath = value?.GetPathForCurrentPlatform() ?? string.Empty;
-                // RemoveProjectCommand canExecute depends on SelectedProject
                 foreach (var cmd in _allCommands) cmd.RaiseCanExecuteChanged();
             }
         }
     }
 
-    public string LocalPath     { get => _localPath;      set => SetProperty(ref _localPath, value); }
-    public string CommitMessage { get => _commitMessage;  set => SetProperty(ref _commitMessage, value); }
-    public string Log           { get => _log;            set => SetProperty(ref _log, value); }
+    public string LocalPath     { get => _localPath;     set => SetProperty(ref _localPath, value); }
+    public string CommitMessage { get => _commitMessage; set => SetProperty(ref _commitMessage, value); }
+    public string Log           { get => _log;           set => SetProperty(ref _log, value); }
+
+    /// <summary>Non-empty when a newer release is available. Bound to the update banner.</summary>
+    public string UpdateNotice
+    {
+        get => _updateNotice;
+        private set
+        {
+            if (SetProperty(ref _updateNotice, value))
+                OnPropertyChanged(nameof(HasUpdateNotice));
+        }
+    }
+
+    /// <summary>Controls update banner visibility.</summary>
+    public bool HasUpdateNotice => !string.IsNullOrEmpty(_updateNotice);
 
     public bool IsBusy
     {
@@ -136,10 +160,19 @@ public sealed class MainWindowViewModel : ViewModelBase
     {
         await Busy(async () =>
         {
-            var check = await _checks.CheckAsync();
-            Log = $"Git: {(check.GitInstalled ? "OK" : "FEHLT")}\n{check.GitVersion}" +
-                  $"\n\nGitHub CLI: {(check.GitHubCliInstalled ? "OK" : "FEHLT")}\n{check.GitHubCliVersion}" +
-                  $"\n\nLogin: {(check.GitHubAuthenticated ? "OK" : "NICHT OK")}\n{check.GitHubAuthOutput}";
+            if (SelectedProject is not null &&
+                !string.IsNullOrWhiteSpace(SelectedProject.GetPathForCurrentPlatform()))
+            {
+                var preflight = await _preflight.CheckAsync(SelectedProject);
+                Log = preflight.ToLogText();
+            }
+            else
+            {
+                var check = await _checks.CheckAsync();
+                Log = $"Git: {(check.GitInstalled ? "OK" : "FEHLT")}\n{check.GitVersion}" +
+                      $"\n\nGitHub CLI: {(check.GitHubCliInstalled ? "OK" : "FEHLT")}\n{check.GitHubCliVersion}" +
+                      $"\n\nLogin: {(check.GitHubAuthenticated ? "OK" : "NICHT OK")}\n{check.GitHubAuthOutput}";
+            }
         });
     }
 
@@ -183,7 +216,9 @@ public sealed class MainWindowViewModel : ViewModelBase
         await Busy(async () =>
         {
             var result = await _git.PullAsync(LocalPath, SelectedProject?.DefaultBranch, SelectedProject?.RemoteUrl);
-            Log = result.CombinedOutput;
+            Log = result.Success
+                ? result.CombinedOutput
+                : EnrichWithErrorHint(result.CombinedOutput);
         });
     }
 
@@ -192,7 +227,9 @@ public sealed class MainWindowViewModel : ViewModelBase
         await Busy(async () =>
         {
             var result = await _git.CommitAndPushAsync(LocalPath, CommitMessage);
-            Log = result.CombinedOutput;
+            Log = result.Success
+                ? result.CombinedOutput
+                : EnrichWithErrorHint(result.CombinedOutput);
         });
     }
 
@@ -236,7 +273,6 @@ public sealed class MainWindowViewModel : ViewModelBase
         });
     }
 
-    /// <summary>Opens a folder picker and writes the selected path to LocalPath (for the current project).</summary>
     private async Task PickFolderAsync()
     {
         if (FolderPickerFunc is null) return;
@@ -254,7 +290,6 @@ public sealed class MainWindowViewModel : ViewModelBase
         }
     }
 
-    /// <summary>Opens a folder picker, reads git metadata, creates a new ManagedProject and saves it.</summary>
     private async Task AddProjectAsync()
     {
         if (FolderPickerFunc is null) return;
@@ -266,11 +301,10 @@ public sealed class MainWindowViewModel : ViewModelBase
             var folderName = Path.GetFileName(path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
             var project = new ManagedProject { Name = string.IsNullOrWhiteSpace(folderName) ? "Neues Projekt" : folderName };
 
-            if (OperatingSystem.IsWindows())      project.WindowsPath = path;
-            else if (OperatingSystem.IsMacOS())   project.MacPath     = path;
-            else                                  project.LinuxPath   = path;
+            if (OperatingSystem.IsWindows())    project.WindowsPath = path;
+            else if (OperatingSystem.IsMacOS()) project.MacPath     = path;
+            else                                project.LinuxPath   = path;
 
-            // Try to read remote origin from the git repo
             var status = await _git.GetStatusAsync(path);
             if (!string.IsNullOrWhiteSpace(status.RemoteOrigin))
             {
@@ -290,7 +324,6 @@ public sealed class MainWindowViewModel : ViewModelBase
         });
     }
 
-    /// <summary>Removes the currently selected project from the list and saves.</summary>
     private async Task RemoveProjectAsync()
     {
         if (SelectedProject is null) return;
@@ -301,7 +334,6 @@ public sealed class MainWindowViewModel : ViewModelBase
         Log = $"Projekt '{name}' entfernt.";
     }
 
-    /// <summary>Calls gh repo list and imports all repositories not already in the list.</summary>
     private async Task ImportGitHubReposAsync()
     {
         await Busy(async () =>
@@ -318,7 +350,8 @@ public sealed class MainWindowViewModel : ViewModelBase
             {
                 var url = repo.Url.TrimEnd('/');
                 bool alreadyExists = Projects.Any(p =>
-                    p.RemoteUrl.TrimEnd('/').TrimSuffix(".git").Equals(url.TrimSuffix(".git"), StringComparison.OrdinalIgnoreCase));
+                    p.RemoteUrl.TrimEnd('/').TrimSuffix(".git").Equals(
+                        url.TrimSuffix(".git"), StringComparison.OrdinalIgnoreCase));
 
                 if (alreadyExists) continue;
 
@@ -339,14 +372,86 @@ public sealed class MainWindowViewModel : ViewModelBase
         });
     }
 
+    // ── Update check ─────────────────────────────────────────────────────────
+
+    /// <summary>Silent background check on startup — never shows errors to the user.</summary>
+    private async Task RunStartupUpdateCheckAsync()
+    {
+        try
+        {
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(12));
+            var result = await _updateCheck.CheckAsync(cts.Token);
+            ApplyUpdateResult(result, silent: true);
+        }
+        catch { /* Never crash the app for an update check */ }
+    }
+
+    private async Task CheckForUpdateAsync()
+    {
+        await Busy(async () =>
+        {
+            var result = await _updateCheck.CheckAsync();
+            ApplyUpdateResult(result, silent: false);
+        });
+    }
+
+    private void ApplyUpdateResult(UpdateCheckResult result, bool silent)
+    {
+        if (result.IsUpdateAvailable)
+        {
+            _updateDownloadUrl = result.DirectDownloadUrl ?? result.ReleasePageUrl;
+            UpdateNotice = $"⬆ Update verfügbar: v{result.LatestVersion}  (aktuell: v{result.CurrentVersion})";
+            foreach (var cmd in _allCommands) cmd.RaiseCanExecuteChanged();
+
+            if (!silent)
+                Log = $"Neue Version gefunden: v{result.LatestVersion}\n\nJetzt herunterladen → {_updateDownloadUrl}";
+        }
+        else if (!silent)
+        {
+            UpdateNotice = string.Empty;
+            Log = string.IsNullOrEmpty(result.ErrorMessage)
+                ? $"App ist aktuell (v{result.CurrentVersion})."
+                : $"Update-Check: {result.ErrorMessage}";
+        }
+    }
+
+    private void OpenUpdateDownload()
+    {
+        if (string.IsNullOrEmpty(_updateDownloadUrl)) return;
+        try
+        {
+            Process.Start(new ProcessStartInfo(_updateDownloadUrl) { UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            Log = $"Download konnte nicht geöffnet werden: {ex.Message}\n\n{_updateDownloadUrl}";
+        }
+    }
+
     // ── Helpers ──────────────────────────────────────────────────────────────
+
+    private static string EnrichWithErrorHint(string rawOutput)
+    {
+        var info = GitErrorParser.Parse(rawOutput);
+        if (info.Kind == GitErrorKind.Unknown)
+            return rawOutput;
+
+        var sb = new StringBuilder();
+        sb.AppendLine(rawOutput.TrimEnd());
+        sb.AppendLine();
+        sb.AppendLine("── Fehleranalyse ────────────────────────────");
+        sb.AppendLine($"Ursache: {info.UserMessage}");
+        if (!string.IsNullOrWhiteSpace(info.Hint))
+            sb.AppendLine($"Lösung:  {info.Hint}");
+        return sb.ToString().TrimEnd();
+    }
 
     private void ApplyPathToSelectedProject()
     {
         if (SelectedProject is null) return;
-        if (OperatingSystem.IsWindows())      SelectedProject.WindowsPath = LocalPath;
-        else if (OperatingSystem.IsMacOS())   SelectedProject.MacPath     = LocalPath;
-        else                                  SelectedProject.LinuxPath   = LocalPath;
+        if (OperatingSystem.IsWindows())    SelectedProject.WindowsPath = LocalPath;
+        else if (OperatingSystem.IsMacOS()) SelectedProject.MacPath     = LocalPath;
+        else                                SelectedProject.LinuxPath   = LocalPath;
     }
 
     private static (string Owner, string Repo)? TryParseGitHubUrl(string url)
@@ -364,7 +469,6 @@ public sealed class MainWindowViewModel : ViewModelBase
     }
 }
 
-/// <summary>Internal extension used by ImportGitHubReposAsync.</summary>
 file static class StringExtensions
 {
     public static string TrimSuffix(this string s, string suffix) =>

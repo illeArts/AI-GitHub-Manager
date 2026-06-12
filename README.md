@@ -210,3 +210,45 @@ gh auth setup-git
 ### Warum kein Token-Feld?
 
 Token-Felder erzeugen genau das Chaos, das dieses Programm verhindern soll: falscher Token, falsche E-Mail, falsche Rechte, falscher Credential Store. Darum nutzt dieses Projekt `gh` als offizielle Login-Schicht.
+
+## Update 2026-06-12: v1.3.0 — Sync-Preflight, Fehleranalyse, Auto-Update-Check
+
+### Neu in 1.3.0
+
+**Sync-Preflight (`Umgebung prüfen`)**
+Der Button "Umgebung prüfen" führt jetzt — wenn ein Projekt mit lokalem Pfad ausgewählt ist — alle 9 Vor-Push-Checks in einem Schritt aus:
+
+- Git installiert?
+- GitHub CLI installiert?
+- GitHub eingeloggt?
+- Lokaler Ordner ist ein Git-Repository?
+- Remote `origin` stimmt mit dem Projekt überein?
+- Aktiver Branch erkannt?
+- Uncommitted Changes vorhanden? (Warnung, kein Abbruch)
+- Merge-Konflikt aktiv (MERGE_HEAD)?
+- Workflow-Dateien vorhanden → workflow-Scope geprüft?
+
+Ergebnis erscheint mit ✅/⚠️/❌ strukturiert im Ausgabe-Fenster.
+
+**Fehleranalyse bei Pull/Push**
+Schlägt ein Pull oder Push fehl, erkennt die App jetzt automatisch bekannte Fehlermuster und zeigt Ursache + Lösung im Klartext:
+
+| Erkannter Fehler | Lösungshinweis |
+|---|---|
+| Authentication failed | GitHub Login + Git Credentials reparieren |
+| repository not found | Repo-Existenz und Zugriffsrechte prüfen |
+| workflow-Scope fehlt | GitHub Rechte: repo + workflow |
+| non-fast-forward | Erst Pull, dann Push |
+| unrelated histories | --allow-unrelated-histories |
+| merge conflict | Konflikte auflösen, dann committen |
+| index.lock | Abgestürzten Git-Prozess bereinigen |
+| Netzwerkfehler | Internetverbindung prüfen |
+
+**Update-Check**
+Die App prüft beim Start automatisch die GitHub Releases API auf neue Versionen. Wenn eine neue Version verfügbar ist, erscheint ein grünes Banner oben in der App mit einem Direktdownload-Button. Über den Button "Auf Updates prüfen" in der linken Leiste kann manuell geprüft werden.
+
+Der Update-Check läuft im Hintergrund, blockiert die App nicht und schlägt still fehl bei fehlendem Netz.
+
+### Installer / Update
+
+Der Windows-Installer erkennt eine vorhandene 1.x-Installation automatisch und aktualisiert sie in-place — kein manuelles Deinstallieren nötig. Einfach `AI_GitHub_Manager_Setup_1.3.0_win-x64.exe` ausführen.

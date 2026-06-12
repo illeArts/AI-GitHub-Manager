@@ -36,6 +36,7 @@ public sealed class LocalizedStrings : INotifyPropertyChanged
                                           "GitHub Scopes: repo + workflow");
     public string RepairGit         => L.T("Git Credentials reparieren","Repair Git Credentials");
     public string SaveProject       => L.T("Projekt speichern",     "Save Project");
+    public string CheckForUpdate    => L.T("Auf Updates prüfen",    "Check for Updates");
 
     // ── Right panel ───────────────────────────────────────────────────────────
     public string LocalLinkHeader   => L.T("Lokale Verknüpfung",   "Local Link");

@@ -29,6 +29,23 @@
       </MenuItem>
     </Menu>
 
+    <!-- ── Update banner (hidden when no update available) ─────────────── -->
+    <Border DockPanel.Dock="Top"
+            IsVisible="{Binding HasUpdateNotice}"
+            Background="#1a3a1a" BorderBrush="#2d6a2d" BorderThickness="0,0,0,1"
+            Padding="16,8">
+      <Grid ColumnDefinitions="*,Auto">
+        <TextBlock Grid.Column="0"
+                   Text="{Binding UpdateNotice}"
+                   Foreground="#7ec87e" FontSize="13" VerticalAlignment="Center" />
+        <Button Grid.Column="1"
+                Content="⬇ Jetzt herunterladen"
+                Command="{Binding OpenUpdateCommand}"
+                Background="#2d6a2d" Foreground="White"
+                Padding="12,4" CornerRadius="6" />
+      </Grid>
+    </Border>
+
     <!-- ── Main grid ─────────────────────────────────────────────────── -->
     <Grid RowDefinitions="Auto,*" ColumnDefinitions="280,*" Margin="16">
 
@@ -81,7 +98,10 @@
             <Button Content="{Binding Strings.RepairGit}"
                     Command="{Binding SetupGitCommand}"             Margin="0,0,0,8" />
             <Button Content="{Binding Strings.SaveProject}"
-                    Command="{Binding SaveProjectCommand}" />
+                    Command="{Binding SaveProjectCommand}"             Margin="0,0,0,8" />
+            <Separator Margin="0,4,0,4" />
+            <Button Content="{Binding Strings.CheckForUpdate}"
+                    Command="{Binding CheckForUpdateCommand}" />
           </StackPanel>
 
           <ListBox ItemsSource="{Binding Projects}" SelectedItem="{Binding SelectedProject}">
