@@ -37,7 +37,7 @@ public sealed class UpdateCheckService
     public static readonly string CurrentVersion =
         Assembly.GetEntryAssembly()?.GetName().Version is { } v
             ? $"{v.Major}.{v.Minor}.{v.Build}"
-            : "1.3.0";
+            : "1.4.0";
 
     public UpdateCheckService(string repoSlug = "illeArts/AI-GitHub-Manager")
     {

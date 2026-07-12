@@ -1,0 +1,40 @@
+<Window xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="AI.GitHubManager.App.Views.ExportWindow" Title="Projekt exportieren · Clean Export"
+        Width="920" Height="720" MinWidth="760" MinHeight="600">
+  <Grid RowDefinitions="Auto,Auto,Auto,Auto,*,Auto" Margin="18">
+    <StackPanel>
+      <TextBlock Text="Projekt exportieren" FontSize="25" FontWeight="Bold" />
+      <TextBlock Text="Clean Export · Export und Zusatzarchiv, keine Git-Synchronisierung" Opacity="0.7" />
+    </StackPanel>
+    <Border Grid.Row="1" Margin="0,14,0,10" Padding="12" BorderThickness="1" BorderBrush="#3b4250" CornerRadius="8">
+      <StackPanel Spacing="7">
+        <TextBlock Text="Quelle" FontWeight="SemiBold" />
+        <Grid ColumnDefinitions="*,Auto"><TextBox x:Name="SourceBox"/><Button Grid.Column="1" Content="Ordner wählen" Click="OnPickSource" Margin="8,0,0,0"/></Grid>
+        <TextBlock x:Name="GitInfoText" TextWrapping="Wrap" />
+        <TextBlock x:Name="WorktreeWarning" Foreground="#e5a94d" TextWrapping="Wrap" />
+      </StackPanel>
+    </Border>
+    <Grid Grid.Row="2" ColumnDefinitions="*,Auto" Margin="0,0,0,10">
+      <StackPanel Grid.Column="0"><TextBlock Text="Zielarchiv" FontWeight="SemiBold"/><TextBox x:Name="DestinationBox"/></StackPanel>
+      <Button Grid.Column="1" Content="Ziel wählen" Click="OnPickDestination" Margin="8,20,0,0"/>
+    </Grid>
+    <Grid Grid.Row="3" ColumnDefinitions="260,*" Margin="0,0,0,10">
+      <StackPanel><TextBlock Text="Profil" FontWeight="SemiBold"/><ComboBox x:Name="ProfileBox" SelectionChanged="OnProfileChanged"/></StackPanel>
+      <StackPanel Grid.Column="1" Margin="12,0,0,0"><TextBlock Text="Eigene Ausschlüsse (ein Muster pro Zeile)" FontWeight="SemiBold"/><TextBox x:Name="CustomPatternsBox" AcceptsReturn="True" Height="70" TextChanged="OnPatternsChanged"/></StackPanel>
+    </Grid>
+    <Grid Grid.Row="4" ColumnDefinitions="*,*" RowDefinitions="Auto,*">
+      <TextBlock Text="Vorschau" FontSize="17" FontWeight="SemiBold"/>
+      <TextBlock Grid.Column="1" Text="Möglicherweise sensible Dateien (markiert = ausschließen)" FontSize="14" FontWeight="SemiBold"/>
+      <TextBox Grid.Row="1" x:Name="PreviewText" IsReadOnly="True" AcceptsReturn="True" TextWrapping="NoWrap" FontFamily="Consolas, Menlo, monospace"/>
+      <ListBox Grid.Row="1" Grid.Column="1" x:Name="SensitiveList" SelectionMode="Multiple" Margin="12,0,0,0"/>
+    </Grid>
+    <Grid Grid.Row="5" ColumnDefinitions="Auto,*,Auto,Auto,Auto" RowDefinitions="Auto,Auto" Margin="0,12,0,0">
+      <CheckBox Grid.ColumnSpan="5" x:Name="SensitiveConfirmation" Content="Ich bestätige bewusst, dass nicht ausgeschlossene sensible Dateien in das ZIP aufgenommen werden."/>
+      <Button Grid.Row="1" Content="Vorschau aktualisieren" Click="OnPreview" Margin="0,8,0,0"/>
+      <StackPanel Grid.Row="1" Grid.Column="1" Margin="12,8,12,0"><ProgressBar x:Name="Progress" Minimum="0" Maximum="1" Height="10"/><TextBlock x:Name="StatusText" Text="Bereit." TextTrimming="CharacterEllipsis"/></StackPanel>
+      <Button Grid.Row="1" Grid.Column="2" x:Name="CancelButton" Content="Abbrechen" Click="OnCancel" IsEnabled="False" Margin="0,8,8,0"/>
+      <Button Grid.Row="1" Grid.Column="3" x:Name="ExportButton" Content="ZIP erstellen" Click="OnExport" Margin="0,8,8,0"/>
+      <Button Grid.Row="1" Grid.Column="4" x:Name="OpenFolderButton" Content="Zielordner öffnen" Click="OnOpenFolder" IsEnabled="False" Margin="0,8,0,0"/>
+    </Grid>
+  </Grid>
+</Window>

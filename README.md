@@ -27,7 +27,7 @@ AI.GitHubManager.sln
 ├── src/AI.GitHubManager.App      # Avalonia Desktop UI
 ├── src/AI.GitHubManager.Core     # Git, GitHub CLI, Diagnose, Sync-Logik
 ├── src/AI.GitHubManager.Data     # Lokaler ProjectStore, aktuell JSON
-└── tests/AI.GitHubManager.Tests  # Platzhalter für spätere Tests
+└── tests/AI.GitHubManager.Tests  # Unit- und Integrationstests
 ```
 
 ## Voraussetzungen
@@ -73,70 +73,19 @@ MVP-Gerüst ist vorbereitet:
 - GitHub-CLI-Statusprüfung
 - Workflow-Scope-Reparatur
 - Git-Credential-Setup über `gh auth setup-git`
+- plattformübergreifender Dialog „Projekt exportieren / Clean Export“
+- unveränderlicher Exportplan mit vier Profilen, Vorschau, Secret-Warnung und großen Dateien
+- sichere ZIP-Erstellung und Inhaltsvalidierung ohne Shell-Aufrufe
+- Git-Worktree-Erkennung mit ausdrücklichem Synchronisierungs- und Backup-Hinweis
 
 ## Nächste Aufgaben für mitwirkende KIs
 
-Bitte in dieser Reihenfolge weiterarbeiten:
+Projektimport, Ordnerauswahl, Sync-Preflight, verständliche Git-Fehleranalyse und eine automatisierte Unit-/Integrationstestsuite sind umgesetzt. Sinnvolle nächste Schritte sind:
 
-### 1. Projektimport verbessern
-
-- `gh repo list --json ...` auslesen
-- Repositories in der UI anzeigen
-- Repo per Button als ManagedProject übernehmen
-- Remote-URL automatisch setzen
-
-### 2. Ordnerauswahl einbauen
-
-- Avalonia StorageProvider verwenden
-- Button `Ordner wählen`
-- ausgewählten Pfad direkt als WindowsPath/MacPath/LinuxPath speichern
-
-### 3. Sync-Engine ergänzen
-
-Vor jedem Push prüfen:
-
-- Ist Git installiert?
-- Ist gh installiert?
-- Ist User authentifiziert?
-- Ist lokaler Ordner ein Git-Repository?
-- Stimmt `origin` mit GitHub-Repo überein?
-- Welche Branch ist aktiv?
-- Gibt es uncommitted changes?
-- Gibt es Konflikte?
-- Gibt es Workflow-Dateien?
-- Ist `workflow`-Scope vorhanden?
-
-### 4. Fehleranalyse nutzerfreundlich machen
-
-Häufige Fehler erkennen und erklären:
-
-- `Authentication failed`
-- `repository not found`
-- `refusing to allow a Personal Access Token to create or update workflow`
-- `non-fast-forward`
-- `unrelated histories`
-- `merge conflict`
-- `nothing to commit`
-
-### 5. UI erweitern
-
-Ziel-Layout:
-
-- Dashboard
-- GitHub-Repositories
-- Lokale Projekte
-- Projekt-Detail
-- Sync-Protokoll
-- Einstellungen
-
-### 6. Tests hinzufügen
-
-Mindestens testen:
-
-- Fehlertext-Parser
-- ProjectStore Load/Save
-- Plattformpfad-Erkennung
-- CommandResult-Auswertung
+- Clean Export auf den unterstützten macOS- und Linux-Zielsystemen manuell verifizieren
+- Bedienoberfläche und Lokalisierung des Exportdialogs weiter vereinheitlichen
+- Release-Artefakte für Windows und macOS automatisiert erstellen und prüfen
+- zusätzliche Regressionstests ergänzen, wenn neue Randfälle bekannt werden
 
 ## Sicherheitsregeln
 
@@ -157,6 +106,12 @@ AI.GitHubManager
 ## Produktziel
 
 AI GitHub Manager soll kein AAIA-only Tool sein. Es ist ein allgemeiner GitHub-Manager für alle aktuellen und zukünftigen Projekte.
+
+## Version 1.4.0 — Clean Export
+
+Version 1.4.0 ergänzt den plattformübergreifenden Dialog **„Projekt exportieren / Clean Export“**. Die Minor-Version wurde erhöht, weil es sich um eine neue, rückwärtskompatible Funktion handelt.
+
+„Vollständiges Dateiarchiv“ bezeichnet kein Git-Wiederherstellungsbackup. Git-Worktrees werden nicht über ZIP-Dateien zwischen Rechnern synchronisiert; für Rechnerwechsel bleiben Fetch, Pull, Commit und Push der verbindliche Weg. Der Export verändert den Quellordner niemals. Potenziell sensible Dateien werden in Version 1 ausschließlich anhand bekannter Namen, Pfade und Dateiendungen erkannt.
 
 ## Update 2026-06-05: GitHub Login Button
 

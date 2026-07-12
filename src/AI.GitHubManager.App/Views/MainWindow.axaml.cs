@@ -52,4 +52,10 @@ public partial class MainWindow : Window
 
     private void OnAboutClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
         => new AboutWindow().ShowDialog(this);
+
+    private void OnExportProjectClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        var path = (DataContext as MainWindowViewModel)?.LocalPath;
+        new ExportWindow(path).ShowDialog(this);
+    }
 }
