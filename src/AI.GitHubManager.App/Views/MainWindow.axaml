@@ -39,7 +39,7 @@
                    Text="{Binding UpdateNotice}"
                    Foreground="#7ec87e" FontSize="13" VerticalAlignment="Center" />
         <Button Grid.Column="1"
-                Content="⬇ Jetzt herunterladen"
+                Content="{Binding Strings.DownloadUpdateBtn}"
                 Command="{Binding OpenUpdateCommand}"
                 Background="#2d6a2d" Foreground="White"
                 Padding="12,4" CornerRadius="6" />
@@ -103,7 +103,7 @@
                     HorizontalContentAlignment="Center"
                     HorizontalAlignment="Stretch"
                     Margin="0,0,0,8">
-              <TextBlock Text="⚠ Ungültigen Token entfernen und Anmeldung reparieren"
+              <TextBlock Text="{Binding Strings.RepairEnvironmentToken}"
                          TextWrapping="Wrap"
                          TextAlignment="Center" />
             </Button>
@@ -113,11 +113,11 @@
                     HorizontalContentAlignment="Center"
                     HorizontalAlignment="Stretch"
                     Margin="0,0,0,8">
-              <TextBlock Text="⚠ Remote sicher bereinigen"
+              <TextBlock Text="{Binding Strings.SanitizeRemote}"
                          TextWrapping="Wrap"
                          TextAlignment="Center" />
             </Button>
-            <Button Content="Diagnosebericht exportieren"
+            <Button Content="{Binding Strings.ExportDiagnostics}"
                     Command="{Binding ExportDiagnosticsCommand}"     Margin="0,0,0,8" />
             <Button Content="{Binding Strings.SaveProject}"
                     Command="{Binding SaveProjectCommand}"             Margin="0,0,0,8" />
@@ -170,7 +170,7 @@
                       Command="{Binding PullCommand}"        Margin="0,0,8,0" />
               <Button Content="{Binding Strings.CommitPushBtn}"
                       Command="{Binding CommitPushCommand}"  Margin="0,0,8,0" />
-              <Button Content="Projekt exportieren"
+              <Button Content="{Binding Strings.ExportProjectBtn}"
                       Click="OnExportProjectClick" />
             </WrapPanel>
           </StackPanel>

@@ -81,6 +81,14 @@ MVP-Gerüst ist vorbereitet:
 - unveränderlicher Exportplan mit vier Profilen, Vorschau, Secret-Warnung und großen Dateien
 - sichere ZIP-Erstellung und Inhaltsvalidierung ohne Shell-Aufrufe
 - Git-Worktree-Erkennung mit ausdrücklichem Synchronisierungs- und Backup-Hinweis
+- strukturierte Authentifizierungsdiagnose (unterscheidet Keyring-, Umgebungstoken- und Mischzustände)
+- Ein-Klick-Reparatur für einen ungültigen GH_TOKEN/GITHUB_TOKEN, der eine gültige Anmeldung blockiert
+- Remote-URL-Normalisierung, Erkennung von Zugangsdaten/Platzhaltern in der URL, Ein-Klick-Bereinigung
+- redigierter Diagnosebericht-Export ohne Tokens/Passwörter
+- vollständig zweisprachiges UI (Deutsch/Englisch) inkl. Hilfe-Fenster, Über-Fenster und Export-Dialog
+
+Das vollständige Benutzerhandbuch (Schnellstart, alle Befehle, Fehlerbehebung, Sicherheit) ist im
+Menü **Hilfe → Hilfe / Befehle** der App verfügbar und existiert auf Deutsch und Englisch.
 
 ## Nächste Aufgaben für mitwirkende KIs
 

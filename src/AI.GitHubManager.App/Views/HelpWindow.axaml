@@ -72,6 +72,22 @@
               <TextBlock x:Name="CmdGitLabel" Grid.Column="0" Foreground="#74c0fc" FontWeight="SemiBold" FontSize="13" />
               <TextBlock x:Name="CmdGit" Grid.Column="1" Foreground="#aabbcc" FontSize="13" TextWrapping="Wrap" />
             </Grid>
+            <Grid ColumnDefinitions="150,*">
+              <TextBlock x:Name="CmdRepairTokenLabel" Grid.Column="0" Foreground="#74c0fc" FontWeight="SemiBold" FontSize="13" />
+              <TextBlock x:Name="CmdRepairToken" Grid.Column="1" Foreground="#aabbcc" FontSize="13" TextWrapping="Wrap" />
+            </Grid>
+            <Grid ColumnDefinitions="150,*">
+              <TextBlock x:Name="CmdSanitizeRemoteLabel" Grid.Column="0" Foreground="#74c0fc" FontWeight="SemiBold" FontSize="13" />
+              <TextBlock x:Name="CmdSanitizeRemote" Grid.Column="1" Foreground="#aabbcc" FontSize="13" TextWrapping="Wrap" />
+            </Grid>
+            <Grid ColumnDefinitions="150,*">
+              <TextBlock x:Name="CmdDiagnosticsLabel" Grid.Column="0" Foreground="#74c0fc" FontWeight="SemiBold" FontSize="13" />
+              <TextBlock x:Name="CmdDiagnostics" Grid.Column="1" Foreground="#aabbcc" FontSize="13" TextWrapping="Wrap" />
+            </Grid>
+            <Grid ColumnDefinitions="150,*">
+              <TextBlock x:Name="CmdExportProjectLabel" Grid.Column="0" Foreground="#74c0fc" FontWeight="SemiBold" FontSize="13" />
+              <TextBlock x:Name="CmdExportProject" Grid.Column="1" Foreground="#aabbcc" FontSize="13" TextWrapping="Wrap" />
+            </Grid>
           </StackPanel>
         </Border>
 

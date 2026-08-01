@@ -18,7 +18,7 @@
       <!-- Custom title bar -->
       <Grid ColumnDefinitions="*,Auto" Margin="18,0"
             PointerPressed="OnTitleBarPressed">
-        <TextBlock Text="Über" VerticalAlignment="Center"
+        <TextBlock x:Name="TitleBarText" VerticalAlignment="Center"
                    Foreground="#6677aa" FontSize="13" />
         <Button Grid.Column="1"
                 Content="✕"
@@ -69,11 +69,10 @@
         </WrapPanel>
 
         <!-- Description -->
-        <TextBlock TextWrapping="Wrap" TextAlignment="Center"
+        <TextBlock x:Name="DescriptionText" TextWrapping="Wrap" TextAlignment="Center"
                    Foreground="#4a5a7a" FontSize="12"
                    LineHeight="19"
-                   Margin="0,0,0,18"
-                   Text="AI GitHub Manager — sicheres, einfaches GitHub-Management für alle deine Projekte. Push, Pull, Diagnose und GitHub CLI-Setup auf einen Klick. Läuft auf Windows und macOS." />
+                   Margin="0,0,0,18" />
 
         <!-- Divider -->
         <Rectangle Height="1" Fill="#1a2540" Margin="0,0,0,20" />

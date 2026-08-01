@@ -54,6 +54,30 @@ public partial class HelpWindow : Window
         CmdGitLabel.Text = L.T("Git Credentials reparieren", "Repair Git Credentials");
         CmdGit.Text    = L.T("Führt gh auth setup-git aus, um den Credential Store zu reparieren.",
                              "Runs gh auth setup-git to repair the credential store.");
+        CmdRepairTokenLabel.Text = L.T("Ungültigen Token entfernen…", "Remove invalid token…");
+        CmdRepairToken.Text = L.T(
+            "Erscheint nur, wenn ein ungültiger GH_TOKEN/GITHUB_TOKEN eine gültige GitHub-Anmeldung blockiert. " +
+            "Entfernt nur die betroffene Umgebungsvariable, lässt die Keyring-Anmeldung unangetastet.",
+            "Only appears when an invalid GH_TOKEN/GITHUB_TOKEN is blocking a valid GitHub login. " +
+            "Removes only the affected environment variable, leaves the keyring login untouched.");
+        CmdSanitizeRemoteLabel.Text = L.T("Remote sicher bereinigen", "Clean up remote safely");
+        CmdSanitizeRemote.Text = L.T(
+            "Erscheint, wenn die Remote-URL Zugangsdaten oder einen Platzhalter wie DEIN_VORHANDENER_TOKEN enthält. " +
+            "Setzt die Remote-URL auf die sichere, credential-freie Form zurück.",
+            "Appears when the remote URL contains credentials or a placeholder like DEIN_VORHANDENER_TOKEN. " +
+            "Resets the remote URL to the safe, credential-free form.");
+        CmdDiagnosticsLabel.Text = L.T("Diagnosebericht exportieren", "Export diagnostic report");
+        CmdDiagnostics.Text = L.T(
+            "Erstellt einen redigierten Bericht (Version, OS, Git/CLI-Version, Remote, Branch, Auth-Status, Scopes) " +
+            "zum Weitergeben an einen Entwickler. Enthält niemals Tokens oder Passwörter.",
+            "Creates a redacted report (version, OS, Git/CLI version, remote, branch, auth status, scopes) " +
+            "to share with a developer. Never contains tokens or passwords.");
+        CmdExportProjectLabel.Text = L.T("Projekt exportieren", "Export project");
+        CmdExportProject.Text = L.T(
+            "Öffnet den Clean-Export-Dialog: erstellt ein ZIP-Archiv des Projekts ohne .git-Verzeichnis, " +
+            "mit Erkennung möglicherweise sensibler Dateien.",
+            "Opens the Clean Export dialog: creates a ZIP archive of the project without the .git directory, " +
+            "with detection of potentially sensitive files.");
 
         // Troubleshooting
         TsHeader.Text = L.T("Fehlerbehebung", "Troubleshooting");
