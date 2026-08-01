@@ -2,9 +2,9 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Class="AI.GitHubManager.App.Views.MainWindow"
         Title="AI GitHub Manager"
-        Width="1150"
+        Width="1360"
         Height="720"
-        MinWidth="900"
+        MinWidth="1020"
         MinHeight="560"
         Icon="avares://AI.GitHubManager.App/Assets/logo.png">
 
@@ -39,7 +39,7 @@
                    Text="{Binding UpdateNotice}"
                    Foreground="#7ec87e" FontSize="13" VerticalAlignment="Center" />
         <Button Grid.Column="1"
-                Content="⬇ Jetzt herunterladen"
+                Content="{Binding Strings.DownloadUpdateBtn}"
                 Command="{Binding OpenUpdateCommand}"
                 Background="#2d6a2d" Foreground="White"
                 Padding="12,4" CornerRadius="6" />
@@ -47,10 +47,10 @@
     </Border>
 
     <!-- ── Main grid ─────────────────────────────────────────────────── -->
-    <Grid RowDefinitions="Auto,*" ColumnDefinitions="280,*" Margin="16">
+    <Grid RowDefinitions="Auto,*" ColumnDefinitions="260,*,240" Margin="16">
 
       <!-- Header -->
-      <Border Grid.ColumnSpan="2" Padding="16" CornerRadius="14"
+      <Border Grid.ColumnSpan="3" Padding="16" CornerRadius="14"
               Background="#20242b" Margin="0,0,0,12">
         <StackPanel>
           <TextBlock Text="AI GitHub Manager"
@@ -60,7 +60,7 @@
         </StackPanel>
       </Border>
 
-      <!-- Left panel: project list -->
+      <!-- Left panel: project list only, so it actually gets room to breathe -->
       <Border Grid.Row="1" Grid.Column="0"
               Padding="12" CornerRadius="12"
               BorderBrush="#3b4250" BorderThickness="1"
@@ -82,27 +82,6 @@
                     Command="{Binding RemoveProjectCommand}"
                     Margin="4,0,0,0" HorizontalAlignment="Stretch" />
           </Grid>
-
-          <!-- Bottom action buttons -->
-          <StackPanel DockPanel.Dock="Bottom" Margin="0,12,0,0">
-            <Button Content="{Binding Strings.ImportGitHub}"
-                    Command="{Binding ImportGitHubReposCommand}"    Margin="0,0,0,8" />
-            <Button Content="{Binding Strings.InstallCli}"
-                    Command="{Binding InstallGitHubCliCommand}"     Margin="0,0,0,8" />
-            <Button Content="{Binding Strings.GitHubLogin}"
-                    Command="{Binding LoginGitHubCommand}"          Margin="0,0,0,8" />
-            <Button Content="{Binding Strings.CheckEnv}"
-                    Command="{Binding CheckEnvironmentCommand}"     Margin="0,0,0,8" />
-            <Button Content="{Binding Strings.RefreshScope}"
-                    Command="{Binding RefreshWorkflowScopeCommand}" Margin="0,0,0,8" />
-            <Button Content="{Binding Strings.RepairGit}"
-                    Command="{Binding SetupGitCommand}"             Margin="0,0,0,8" />
-            <Button Content="{Binding Strings.SaveProject}"
-                    Command="{Binding SaveProjectCommand}"             Margin="0,0,0,8" />
-            <Separator Margin="0,4,0,4" />
-            <Button Content="{Binding Strings.CheckForUpdate}"
-                    Command="{Binding CheckForUpdateCommand}" />
-          </StackPanel>
 
           <ListBox ItemsSource="{Binding Projects}" SelectedItem="{Binding SelectedProject}">
             <ListBox.ItemTemplate>
@@ -148,7 +127,7 @@
                       Command="{Binding PullCommand}"        Margin="0,0,8,0" />
               <Button Content="{Binding Strings.CommitPushBtn}"
                       Command="{Binding CommitPushCommand}"  Margin="0,0,8,0" />
-              <Button Content="Projekt exportieren"
+              <Button Content="{Binding Strings.ExportProjectBtn}"
                       Click="OnExportProjectClick" />
             </WrapPanel>
           </StackPanel>
@@ -184,6 +163,71 @@
           </DockPanel>
         </Border>
       </Grid>
+
+      <!-- Actions panel: all task buttons live here, to the right of the output,
+           so the project list on the left keeps its own space. -->
+      <Border Grid.Row="1" Grid.Column="2"
+              Padding="12" CornerRadius="12"
+              BorderBrush="#3b4250" BorderThickness="1"
+              Margin="12,0,0,0">
+        <DockPanel LastChildFill="True">
+          <TextBlock DockPanel.Dock="Top"
+                     Text="{Binding Strings.ActionsHeader}"
+                     FontSize="18" FontWeight="SemiBold" Margin="0,0,0,8" />
+
+          <ScrollViewer>
+            <StackPanel>
+              <Button Content="{Binding Strings.ImportGitHub}"
+                      Command="{Binding ImportGitHubReposCommand}"    Margin="0,0,0,8" HorizontalAlignment="Stretch" />
+              <Button Content="{Binding Strings.InstallCli}"
+                      Command="{Binding InstallGitHubCliCommand}"     Margin="0,0,0,8" HorizontalAlignment="Stretch" />
+              <Button Content="{Binding Strings.GitHubLogin}"
+                      Command="{Binding LoginGitHubCommand}"          Margin="0,0,0,8" HorizontalAlignment="Stretch" />
+              <Button Content="{Binding Strings.CheckEnv}"
+                      Command="{Binding CheckEnvironmentCommand}"     Margin="0,0,0,8" HorizontalAlignment="Stretch" />
+              <Button Content="{Binding Strings.RefreshScope}"
+                      Command="{Binding RefreshWorkflowScopeCommand}" Margin="0,0,0,8" HorizontalAlignment="Stretch" />
+              <Button Content="{Binding Strings.RepairGit}"
+                      Command="{Binding SetupGitCommand}"             Margin="0,0,0,8" HorizontalAlignment="Stretch" />
+              <Button Command="{Binding RepairEnvironmentTokenCommand}"
+                      IsVisible="{Binding CanRepairEnvironmentToken}"
+                      Background="#5a3a1a" Foreground="White"
+                      HorizontalContentAlignment="Center"
+                      HorizontalAlignment="Stretch"
+                      Margin="0,0,0,8">
+                <TextBlock Text="{Binding Strings.RepairEnvironmentToken}"
+                           TextWrapping="Wrap"
+                           TextAlignment="Center" />
+              </Button>
+              <Button Command="{Binding SanitizeRemoteCommand}"
+                      IsVisible="{Binding CanSanitizeRemote}"
+                      Background="#5a3a1a" Foreground="White"
+                      HorizontalContentAlignment="Center"
+                      HorizontalAlignment="Stretch"
+                      Margin="0,0,0,8">
+                <TextBlock Text="{Binding Strings.SanitizeRemote}"
+                           TextWrapping="Wrap"
+                           TextAlignment="Center" />
+              </Button>
+              <Button Content="{Binding Strings.ExportDiagnostics}"
+                      Command="{Binding ExportDiagnosticsCommand}"    Margin="0,0,0,8" HorizontalAlignment="Stretch" />
+              <Button Content="{Binding Strings.SaveProject}"
+                      Command="{Binding SaveProjectCommand}"          Margin="0,0,0,8" HorizontalAlignment="Stretch" />
+              <Separator Margin="0,4,0,4" />
+              <Button Content="{Binding Strings.BuildTestPushBtn}"
+                      Command="{Binding BuildTestPushCommand}"        Margin="0,0,0,8" HorizontalAlignment="Stretch" />
+              <Button Content="{Binding Strings.CreateInstallerBtn}"
+                      Command="{Binding CreateInstallerCommand}"      Margin="0,0,0,8" HorizontalAlignment="Stretch" />
+              <Button Content="{Binding Strings.InstallInnoSetupBtn}"
+                      Command="{Binding InstallInnoSetupCommand}"
+                      IsVisible="{Binding ShowInstallInnoSetup}"      Margin="0,0,0,8" HorizontalAlignment="Stretch" />
+              <Separator Margin="0,4,0,4" />
+              <Button Content="{Binding Strings.CheckForUpdate}"
+                      Command="{Binding CheckForUpdateCommand}"       HorizontalAlignment="Stretch" />
+            </StackPanel>
+          </ScrollViewer>
+        </DockPanel>
+      </Border>
     </Grid>
 
   </DockPanel>

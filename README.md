@@ -1,8 +1,12 @@
 # AI GitHub Manager
 
-[![Version](https://img.shields.io/badge/version-1.4.0-blue)](#aktueller-funktionsstand)
+[![Version](https://img.shields.io/badge/version-1.6.1-blue)](#aktueller-funktionsstand)
 [![Platforms](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey)](#voraussetzungen)
 [![License](https://img.shields.io/badge/license-proprietary%20community--use-orange)](LICENSE)
+
+<p align="center">
+  <img src="Logo/AI-GitHub_Manager.png" alt="AI GitHub Manager Logo" width="220" />
+</p>
 
 AI GitHub Manager ist eine kompakte, plattformübergreifende Avalonia/.NET-Desktopanwendung für Windows, macOS und Linux. Sie unterstützt Nutzer dabei, GitHub-Projekte auszuwählen, lokale Ordner korrekt zuzuordnen und typische Git-Arbeitsschritte wie Statusprüfung, Pull, Commit und Push verständlich auszuführen.
 
@@ -54,6 +58,15 @@ Siehe auch [SECURITY.md](SECURITY.md) und [PRIVACY.md](PRIVACY.md).
 - ZIP-Erstellung und Inhaltsvalidierung ohne Shell-Aufrufe
 - Git-Worktree-Erkennung mit Synchronisierungs- und Backup-Hinweis
 - automatische Prüfung der GitHub Releases API auf neue Versionen
+- strukturierte Authentifizierungsdiagnose (unterscheidet Keyring-, Umgebungstoken- und Mischzustände)
+- Ein-Klick-Reparatur für einen ungültigen GH_TOKEN/GITHUB_TOKEN, der eine gültige Anmeldung blockiert
+- Remote-URL-Normalisierung, Erkennung von Zugangsdaten/Platzhaltern in der URL, Ein-Klick-Bereinigung
+- redigierter Diagnosebericht-Export ohne Tokens/Passwörter
+- vollständig zweisprachiges UI (Deutsch/Englisch) inkl. Hilfe-Fenster, Über-Fenster und Export-Dialog
+- Self-Service „Build, Test & Push" für .NET-Projekte (bricht vor dem Push ab, wenn Build oder Test fehlschlagen)
+- „Installer erstellen" für Windows (Publish + Inno Setup) und macOS (build-installer-mac.sh)
+- vorsorglicher „Inno Setup installieren"-Button: erscheint unter Windows nur, solange Inno Setup 6
+  nicht gefunden wurde, und verschwindet automatisch, sobald es installiert ist
 
 ## Sync-Preflight
 
@@ -111,6 +124,18 @@ AI.GitHubManager.sln
 └── tests/AI.GitHubManager.Tests  # Unit- und Integrationstests
 ```
 
+## Namensraum
+
+Alle Projekte verwenden:
+
+```text
+AI.GitHubManager
+```
+
+## Produktziel
+
+AI GitHub Manager soll kein AAIA-only Tool sein. Es ist ein allgemeiner GitHub-Manager für alle aktuellen und zukünftigen Projekte.
+
 ## Start aus dem Quellcode
 
 1. Repository klonen.
@@ -162,7 +187,10 @@ gh auth setup-git
 
 ## Aktueller Funktionsstand
 
-Aktuelle Projektversion: **1.4.0**
+Aktuelle Projektversion: **1.6.1**
+
+Das vollständige Benutzerhandbuch (Schnellstart, alle Befehle, Fehlerbehebung, Sicherheit) ist im
+Menü **Hilfe → Hilfe / Befehle** der App verfügbar und existiert auf Deutsch und Englisch.
 
 Noch sinnvoll zu verifizieren beziehungsweise auszubauen:
 
@@ -171,6 +199,96 @@ Noch sinnvoll zu verifizieren beziehungsweise auszubauen:
 - reproduzierbare Release-Artefakte für Windows, macOS und Linux automatisieren;
 - Signierung, Prüfsummen und Release-Nachweise ergänzen;
 - Regressionstests bei neuen Randfällen erweitern.
+
+## Änderungsprotokoll (Changelog)
+
+### Version 1.6.1 — Vorsorglicher Inno-Setup-Hinweis
+
+„Installer erstellen“ auf Windows benötigt Inno Setup 6 (kostenlos, https://jrsoftware.org/isinfo.php).
+Bisher stand das nur im Fehlertext, falls die Erstellung deshalb fehlschlug. Neu:
+
+- Das Hilfe-Fenster (Menü **Hilfe → Hilfe / Befehle**) erklärt jetzt explizit, dass Windows dafür
+  Inno Setup 6 braucht und wo man es bekommt.
+- Vorsorglicher Button **„Inno Setup installieren“**: Die App prüft beim ersten Start (und danach bei
+  jeder Umgebungsprüfung sowie nach jedem Installer-Lauf) automatisch, ob Inno Setup 6 an einem der
+  bekannten Installationsorte gefunden wird.
+  - Gefunden → Button ist nicht sichtbar.
+  - Nicht gefunden → Button erscheint neben „Installer erstellen“ und öffnet beim Klick die offizielle
+    Download-Seite im Standardbrowser. Es wird nichts automatisch heruntergeladen oder installiert.
+  - Nach einer manuellen Installation verschwindet der Button von selbst (sobald erneut geprüft wird),
+    ganz ohne App-Neustart.
+- Nur unter Windows relevant; auf macOS/Linux bleibt der Button dauerhaft ausgeblendet.
+
+### Version 1.6.0 — Selbst-Build, Test & Installer-Erstellung; UI-Layout
+
+- **Build, Test & Push**: Für .NET-Projekte (z. B. dieses Repository) führt die App `dotnet build`,
+  dann `dotnet test` aus. Nur bei Erfolg beider Schritte wird committet und gepusht — bei einem
+  Fehlschlag wird nichts gepusht. Erkennt automatisch, ob ein unterstütztes .NET-Build-System
+  (`.sln`/`.csproj`) im Projektordner vorhanden ist.
+- **Installer erstellen**: Erstellt auf Windows einen Installer (Self-Contained-Publish + Inno Setup
+  6, sofern installiert) und auf macOS über das vorhandene `build-installer-mac.sh`. Läuft direkt
+  aus der App, ohne das lokale, nicht versionierte `build-installer-win.bat` aufzurufen (das Skript
+  ist bewusst git-ignoriert und wartet interaktiv auf Tasteneingaben, was bei nicht-interaktiver
+  Ausführung zum Einfrieren führen würde).
+- **UI-Layout**: Die Aktions-Buttons standen bisher direkt unter der Projektliste und nahmen ihr
+  fast den ganzen Platz weg. Neues drittes Panel rechts neben dem Ausgabefeld nimmt jetzt alle
+  Aktions-Buttons auf; die Projektliste links hat wieder ausreichend Raum.
+
+### Version 1.5.1 — Build-Fix für die Avalonia-Oberfläche
+
+Der Release-Build von 1.5.0 schlug mit `AVLN2000: Button besitzt keine Eigenschaft TextWrapping`
+fehl (`MainWindow.axaml`). `TextWrapping` ist keine Button-Eigenschaft in Avalonia — beide neuen
+Buttons („Ungültigen Token entfernen und Anmeldung reparieren“, „Remote sicher bereinigen“)
+verwenden jetzt korrekt einen `TextBlock` als Button-Inhalt. Keine funktionalen Änderungen
+gegenüber 1.5.0, reiner Build-Fix.
+
+### Version 1.5.0 — Selbstdiagnose & Selbstreparatur der GitHub-Authentifizierung
+
+Referenzfall: Ein ungültiger `GITHUB_TOKEN`/`GH_TOKEN` in der Windows-Umgebung überschreibt eine
+gültige, im GitHub-CLI-Keyring gespeicherte Anmeldung. Die App meldete das bisher fälschlich als
+„Nicht bei GitHub eingeloggt“ und blockierte den Push, obwohl `gh auth status` mit bereinigter
+Umgebung eine gültige Anmeldung zeigt.
+
+- Strukturierte Authentifizierungsdiagnose mit eigenem Zustandsmodell (`AuthenticationState`):
+  `Authenticated`, `AuthenticatedViaKeyring`, `AuthenticatedViaEnvironmentToken`,
+  `InvalidEnvironmentToken`, `EnvironmentTokenOverridesValidKeyring`, `NotAuthenticated`,
+  `MissingRequiredScopes`, `GitHubCliUnavailable`, `AuthenticationCheckFailed`.
+- Zweite Prüfung mit bereinigter Prozessumgebung (ohne `GH_TOKEN`/`GITHUB_TOKEN`), sobald die erste
+  Prüfung fehlschlägt und einer der beiden Werte gesetzt ist. So erkennt die App eine gültige
+  Keyring-Anmeldung, die durch einen ungültigen Token verdeckt wird.
+- Ein-Klick-Reparatur „Ungültigen Token entfernen und Anmeldung reparieren“: entfernt nur die
+  betroffene(n) Umgebungsvariable(n) aus Prozess- und Benutzerumgebung (`HKCU\Environment`),
+  lässt Systemvariablen (`HKLM`) unangetastet, sendet `WM_SETTINGCHANGE`, prüft danach sofort
+  erneut — ohne Neustart. Der GitHub-CLI-Keyring wird dabei nie verändert.
+- Keine Tokens mehr in Remote-URLs: `RemoteUrlNormalizer` erkennt eingebettete Zugangsdaten und
+  Platzhalter wie `DEIN_VORHANDENER_TOKEN`, vergleicht Remote-URLs semantisch (HTTPS/SSH,
+  mit/ohne `.git`, Groß-/Kleinschreibung) und bietet „Remote sicher bereinigen“ zur kanonischen
+  Form `https://github.com/<owner>/<repository>.git` an.
+- Verständlicherer GitHub-Login-Assistent: erkennt automatisch, ob bereits eine gültige Anmeldung
+  besteht, ob nur eine Berechtigung fehlt, oder ob eine echte Neuanmeldung nötig ist.
+- Diagnosebericht-Export: redigierter Bericht (Version, OS, Git-/CLI-Version, Repository-Pfad,
+  credential-freie Remote-URL, Branch, Auth-Status, Scopes) zum Weitergeben an Entwickler — niemals
+  mit Tokens, Passwörtern oder rohen Umgebungsvariablen-Werten.
+- Push wird nur noch blockiert, wenn eine zwingende Voraussetzung tatsächlich fehlt, und die
+  Meldung nennt den genauen Grund plus ob eine automatische Reparatur verfügbar ist.
+
+### Version 1.4.0 — Clean Export
+
+Ergänzt den plattformübergreifenden Dialog „Projekt exportieren / Clean Export“ (siehe Abschnitt
+oben). Die Minor-Version wurde erhöht, weil es sich um eine neue, rückwärtskompatible Funktion handelt.
+
+### Version 1.3.0 — Sync-Preflight, Fehleranalyse, Auto-Update-Check
+
+- **Sync-Preflight**: „Umgebung prüfen“ führt bei ausgewähltem Projekt alle neun Vor-Push-Checks in
+  einem Schritt aus (siehe Abschnitt „Sync-Preflight“ oben).
+- **Fehleranalyse**: Bekannte Pull-/Push-Fehlermuster werden erkannt und mit Klartext-Lösungshinweis
+  angezeigt (siehe Abschnitt „Fehleranalyse“ oben).
+- **Update-Check**: Die App prüft beim Start automatisch die GitHub Releases API auf neue Versionen
+  und zeigt bei Verfügbarkeit ein Banner mit Direktdownload-Button. Läuft im Hintergrund, blockiert
+  die App nicht und schlägt still fehl bei fehlendem Netz. Manuell auslösbar über „Auf Updates
+  prüfen“.
+- Der Windows-Installer erkennt eine vorhandene 1.x-Installation automatisch und aktualisiert sie
+  in-place — kein manuelles Deinstallieren nötig.
 
 ## Lizenz und erlaubte Nutzung
 

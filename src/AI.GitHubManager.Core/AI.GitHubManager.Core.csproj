@@ -4,4 +4,11 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Needed for Microsoft.Win32.Registry (RegistryKey) since this project targets
+         plain net8.0 (cross-platform) rather than net8.0-windows. All registry access
+         is guarded at runtime with OperatingSystem.IsWindows() checks. -->
+    <PackageReference Include="Microsoft.Win32.Registry" Version="5.0.0" />
+  </ItemGroup>
 </Project>

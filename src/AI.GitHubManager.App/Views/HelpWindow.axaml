@@ -72,6 +72,34 @@
               <TextBlock x:Name="CmdGitLabel" Grid.Column="0" Foreground="#74c0fc" FontWeight="SemiBold" FontSize="13" />
               <TextBlock x:Name="CmdGit" Grid.Column="1" Foreground="#aabbcc" FontSize="13" TextWrapping="Wrap" />
             </Grid>
+            <Grid ColumnDefinitions="150,*">
+              <TextBlock x:Name="CmdRepairTokenLabel" Grid.Column="0" Foreground="#74c0fc" FontWeight="SemiBold" FontSize="13" />
+              <TextBlock x:Name="CmdRepairToken" Grid.Column="1" Foreground="#aabbcc" FontSize="13" TextWrapping="Wrap" />
+            </Grid>
+            <Grid ColumnDefinitions="150,*">
+              <TextBlock x:Name="CmdSanitizeRemoteLabel" Grid.Column="0" Foreground="#74c0fc" FontWeight="SemiBold" FontSize="13" />
+              <TextBlock x:Name="CmdSanitizeRemote" Grid.Column="1" Foreground="#aabbcc" FontSize="13" TextWrapping="Wrap" />
+            </Grid>
+            <Grid ColumnDefinitions="150,*">
+              <TextBlock x:Name="CmdDiagnosticsLabel" Grid.Column="0" Foreground="#74c0fc" FontWeight="SemiBold" FontSize="13" />
+              <TextBlock x:Name="CmdDiagnostics" Grid.Column="1" Foreground="#aabbcc" FontSize="13" TextWrapping="Wrap" />
+            </Grid>
+            <Grid ColumnDefinitions="150,*">
+              <TextBlock x:Name="CmdExportProjectLabel" Grid.Column="0" Foreground="#74c0fc" FontWeight="SemiBold" FontSize="13" />
+              <TextBlock x:Name="CmdExportProject" Grid.Column="1" Foreground="#aabbcc" FontSize="13" TextWrapping="Wrap" />
+            </Grid>
+            <Grid ColumnDefinitions="150,*">
+              <TextBlock x:Name="CmdBuildTestPushLabel" Grid.Column="0" Foreground="#74c0fc" FontWeight="SemiBold" FontSize="13" />
+              <TextBlock x:Name="CmdBuildTestPush" Grid.Column="1" Foreground="#aabbcc" FontSize="13" TextWrapping="Wrap" />
+            </Grid>
+            <Grid ColumnDefinitions="150,*">
+              <TextBlock x:Name="CmdCreateInstallerLabel" Grid.Column="0" Foreground="#74c0fc" FontWeight="SemiBold" FontSize="13" />
+              <TextBlock x:Name="CmdCreateInstaller" Grid.Column="1" Foreground="#aabbcc" FontSize="13" TextWrapping="Wrap" />
+            </Grid>
+            <Grid ColumnDefinitions="150,*">
+              <TextBlock x:Name="CmdInstallInnoSetupLabel" Grid.Column="0" Foreground="#74c0fc" FontWeight="SemiBold" FontSize="13" />
+              <TextBlock x:Name="CmdInstallInnoSetup" Grid.Column="1" Foreground="#aabbcc" FontSize="13" TextWrapping="Wrap" />
+            </Grid>
           </StackPanel>
         </Border>
 
@@ -96,6 +124,9 @@
             </Grid>
             <Grid ColumnDefinitions="*,Auto">
               <TextBlock x:Name="Ts5" Grid.Column="0" Foreground="#aabbcc" FontSize="13" TextWrapping="Wrap" />
+            </Grid>
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock x:Name="Ts6" Grid.Column="0" Foreground="#aabbcc" FontSize="13" TextWrapping="Wrap" />
             </Grid>
           </StackPanel>
         </Border>

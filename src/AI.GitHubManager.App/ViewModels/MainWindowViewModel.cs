@@ -4,11 +4,14 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Windows.Input;
 using AI.GitHubManager.App.Services;
+using AI.GitHubManager.Core.Build;
 using AI.GitHubManager.Core.Diagnostics;
+using AI.GitHubManager.Core.EnvironmentRepair;
 using AI.GitHubManager.Core.Git;
 using AI.GitHubManager.Core.GitHub;
 using AI.GitHubManager.Core.Process;
 using AI.GitHubManager.Core.Projects;
+using AI.GitHubManager.Core.Remote;
 using AI.GitHubManager.Core.Update;
 using AI.GitHubManager.Data;
 
@@ -21,6 +24,9 @@ public sealed class MainWindowViewModel : ViewModelBase
     private readonly GitHubCliService _gh;
     private readonly EnvironmentCheckService _checks;
     private readonly SyncPreflightService _preflight;
+    private readonly AuthenticationDiagnosticService _authDiagnostics;
+    private readonly ProjectBuildService _projectBuild;
+    private readonly InstallerBuildService _installerBuild;
     private readonly UpdateCheckService _updateCheck = new();
     private readonly JsonProjectStore _store = new();
 
@@ -31,6 +37,9 @@ public sealed class MainWindowViewModel : ViewModelBase
     private bool _isBusy;
     private string _updateNotice = string.Empty;
     private string? _updateDownloadUrl;
+    private bool _canRepairEnvironmentToken;
+    private bool _canSanitizeRemote;
+    private bool _showInstallInnoSetup;
 
     private RelayCommand[] _allCommands = Array.Empty<RelayCommand>();
 
@@ -39,10 +48,13 @@ public sealed class MainWindowViewModel : ViewModelBase
 
     public MainWindowViewModel()
     {
-        _git       = new GitService(_runner);
-        _gh        = new GitHubCliService(_runner);
-        _checks    = new EnvironmentCheckService(_git, _gh);
-        _preflight = new SyncPreflightService(_git, _gh);
+        _git             = new GitService(_runner);
+        _gh              = new GitHubCliService(_runner);
+        _checks          = new EnvironmentCheckService(_git, _gh);
+        _preflight       = new SyncPreflightService(_git, _gh);
+        _authDiagnostics = new AuthenticationDiagnosticService(_gh);
+        _projectBuild    = new ProjectBuildService(_runner);
+        _installerBuild  = new InstallerBuildService(_runner);
 
         Projects = new ObservableCollection<ManagedProject>();
 
@@ -62,6 +74,12 @@ public sealed class MainWindowViewModel : ViewModelBase
         var importGitHub     = new RelayCommand(ImportGitHubReposAsync,      () => !IsBusy);
         var openUpdate       = new RelayCommand(() => { OpenUpdateDownload(); return Task.CompletedTask; }, () => !string.IsNullOrEmpty(_updateDownloadUrl));
         var checkUpdateNow   = new RelayCommand(CheckForUpdateAsync,         () => !IsBusy);
+        var repairToken      = new RelayCommand(RepairEnvironmentTokenAsync, () => !IsBusy);
+        var sanitizeRemote   = new RelayCommand(SanitizeRemoteAsync,         () => !IsBusy);
+        var exportDiagnostics = new RelayCommand(ExportDiagnosticsAsync,     () => !IsBusy);
+        var buildTestPush    = new RelayCommand(BuildTestAndPushAsync,      () => !IsBusy);
+        var createInstaller  = new RelayCommand(CreateInstallerAsync,       () => !IsBusy);
+        var installInnoSetup = new RelayCommand(() => { OpenInnoSetupDownload(); return Task.CompletedTask; }, () => !IsBusy);
 
         CheckEnvironmentCommand     = checkEnv;
         LoadProjectsCommand         = loadProjects;
@@ -79,15 +97,23 @@ public sealed class MainWindowViewModel : ViewModelBase
         ImportGitHubReposCommand    = importGitHub;
         OpenUpdateCommand           = openUpdate;
         CheckForUpdateCommand       = checkUpdateNow;
+        RepairEnvironmentTokenCommand = repairToken;
+        SanitizeRemoteCommand         = sanitizeRemote;
+        ExportDiagnosticsCommand      = exportDiagnostics;
+        BuildTestPushCommand          = buildTestPush;
+        CreateInstallerCommand        = createInstaller;
+        InstallInnoSetupCommand       = installInnoSetup;
 
         _allCommands = new[]
         {
             checkEnv, loadProjects, saveProject, gitStatus, pull,
             commitPush, refreshScope, setupGit, loginGitHub, installCli,
             pickFolder, addProject, removeProject, importGitHub,
-            openUpdate, checkUpdateNow
+            openUpdate, checkUpdateNow, repairToken, sanitizeRemote, exportDiagnostics,
+            buildTestPush, createInstaller, installInnoSetup
         };
 
+        RefreshInnoSetupAvailability();
         _ = LoadProjectsAsync();
         _ = RunStartupUpdateCheckAsync();
     }
@@ -112,6 +138,12 @@ public sealed class MainWindowViewModel : ViewModelBase
     public ICommand ImportGitHubReposCommand    { get; }
     public ICommand OpenUpdateCommand           { get; }
     public ICommand CheckForUpdateCommand       { get; }
+    public ICommand RepairEnvironmentTokenCommand { get; }
+    public ICommand SanitizeRemoteCommand         { get; }
+    public ICommand ExportDiagnosticsCommand      { get; }
+    public ICommand BuildTestPushCommand          { get; }
+    public ICommand CreateInstallerCommand        { get; }
+    public ICommand InstallInnoSetupCommand       { get; }
 
     public ManagedProject? SelectedProject
     {
@@ -144,6 +176,36 @@ public sealed class MainWindowViewModel : ViewModelBase
     /// <summary>Controls update banner visibility.</summary>
     public bool HasUpdateNotice => !string.IsNullOrEmpty(_updateNotice);
 
+    /// <summary>
+    /// True when the last check found a state where an invalid GH_TOKEN/GITHUB_TOKEN
+    /// is hiding a valid `gh` keyring login. Controls the repair button's visibility.
+    /// </summary>
+    public bool CanRepairEnvironmentToken
+    {
+        get => _canRepairEnvironmentToken;
+        private set => SetProperty(ref _canRepairEnvironmentToken, value);
+    }
+
+    /// <summary>True when the current remote origin contains embedded credentials or a placeholder.</summary>
+    public bool CanSanitizeRemote
+    {
+        get => _canSanitizeRemote;
+        private set => SetProperty(ref _canSanitizeRemote, value);
+    }
+
+    /// <summary>
+    /// True only on Windows, and only while Inno Setup 6 is not found at any of
+    /// its well-known install locations. Controls visibility of the proactive
+    /// "Install Inno Setup" button: shown when missing, hidden as soon as it's
+    /// found (checked at startup and re-checked whenever the environment check
+    /// or "Create Installer" run).
+    /// </summary>
+    public bool ShowInstallInnoSetup
+    {
+        get => _showInstallInnoSetup;
+        private set => SetProperty(ref _showInstallInnoSetup, value);
+    }
+
     public bool IsBusy
     {
         get => _isBusy;
@@ -160,18 +222,26 @@ public sealed class MainWindowViewModel : ViewModelBase
     {
         await Busy(async () =>
         {
+            RefreshInnoSetupAvailability();
+
             if (SelectedProject is not null &&
                 !string.IsNullOrWhiteSpace(SelectedProject.GetPathForCurrentPlatform()))
             {
                 var preflight = await _preflight.CheckAsync(SelectedProject);
                 Log = preflight.ToLogText();
+                CanRepairEnvironmentToken = preflight.Items.Any(i => i.RepairActionId == "repair-environment-token");
+                CanSanitizeRemote         = preflight.Items.Any(i => i.RepairActionId == "sanitize-remote");
             }
             else
             {
                 var check = await _checks.CheckAsync();
-                Log = $"Git: {(check.GitInstalled ? "OK" : "FEHLT")}\n{check.GitVersion}" +
-                      $"\n\nGitHub CLI: {(check.GitHubCliInstalled ? "OK" : "FEHLT")}\n{check.GitHubCliVersion}" +
-                      $"\n\nLogin: {(check.GitHubAuthenticated ? "OK" : "NICHT OK")}\n{check.GitHubAuthOutput}";
+                var notOk = L.T("FEHLT", "MISSING");
+                var loginNotOk = L.T("NICHT OK", "NOT OK");
+                Log = $"Git: {(check.GitInstalled ? "OK" : notOk)}\n{check.GitVersion}" +
+                      $"\n\nGitHub CLI: {(check.GitHubCliInstalled ? "OK" : notOk)}\n{check.GitHubCliVersion}" +
+                      $"\n\n{L.T("Login", "Login")}: {(check.GitHubAuthenticated ? "OK" : loginNotOk)}\n{check.GitHubAuthOutput}";
+                CanRepairEnvironmentToken = check.Authentication?.State == AuthenticationState.EnvironmentTokenOverridesValidKeyring;
+                CanSanitizeRemote = false;
             }
         });
     }
@@ -190,7 +260,7 @@ public sealed class MainWindowViewModel : ViewModelBase
         ApplyPathToSelectedProject();
         SelectedProject.UpdatedAt = DateTimeOffset.UtcNow;
         await _store.SaveAsync(Projects);
-        Log = "Projekt gespeichert.";
+        Log = L.T("Projekt gespeichert.", "Project saved.");
     }
 
     private async Task GitStatusAsync()
@@ -199,14 +269,16 @@ public sealed class MainWindowViewModel : ViewModelBase
         {
             var status = await _git.GetStatusAsync(LocalPath);
             var sb = new StringBuilder();
-            sb.AppendLine(status.IsRepository ? "Repository: OK" : "Repository: FEHLT/UNGÜLTIG");
+            sb.AppendLine(status.IsRepository
+                ? "Repository: OK"
+                : L.T("Repository: FEHLT/UNGÜLTIG", "Repository: MISSING/INVALID"));
             sb.AppendLine($"Branch: {status.Branch}");
             sb.AppendLine($"Remote: {status.RemoteOrigin}");
             if (!string.IsNullOrWhiteSpace(status.ErrorMessage)) sb.AppendLine(status.ErrorMessage);
             sb.AppendLine();
-            sb.AppendLine("Geänderte Dateien:");
+            sb.AppendLine(L.T("Geänderte Dateien:", "Changed files:"));
             foreach (var file in status.ChangedFiles) sb.AppendLine(file);
-            if (status.ChangedFiles.Count == 0) sb.AppendLine("Keine Änderungen.");
+            if (status.ChangedFiles.Count == 0) sb.AppendLine(L.T("Keine Änderungen.", "No changes."));
             Log = sb.ToString();
         });
     }
@@ -233,14 +305,264 @@ public sealed class MainWindowViewModel : ViewModelBase
         });
     }
 
+    /// <summary>
+    /// Guided GitHub login: checks the actual authentication state first and
+    /// only starts a real login flow when one is genuinely needed. A layperson
+    /// never has to know what an environment variable, a token, or the Windows
+    /// keyring is — the app tells them exactly what happened and what to do.
+    /// </summary>
     private async Task LoginGitHubAsync()
     {
         await Busy(async () =>
         {
-            var result = await _gh.OpenAuthLoginTerminalAsync();
+            var auth = await _authDiagnostics.DiagnoseAsync();
+
+            switch (auth.State)
+            {
+                // Fall A: already logged in — nothing to do.
+                case AuthenticationState.AuthenticatedViaKeyring:
+                case AuthenticationState.Authenticated:
+                case AuthenticationState.AuthenticatedViaEnvironmentToken:
+                    Log = L.T($"✅ GitHub-Konto verbunden: {auth.ActiveAccount}\n\nKein erneuter Login erforderlich.",
+                               $"✅ GitHub account connected: {auth.ActiveAccount}\n\nNo new login required.");
+                    CanRepairEnvironmentToken = false;
+                    break;
+
+                // Fall B: a bad token is hiding a valid login — offer the one-click repair.
+                case AuthenticationState.EnvironmentTokenOverridesValidKeyring:
+                    Log = $"{auth.Summary}\n\n" +
+                          L.T("Klicke auf \"Ungültigen Token entfernen und Anmeldung reparieren\", um das automatisch zu beheben.",
+                              "Click \"Remove invalid token and repair login\" to fix this automatically.");
+                    CanRepairEnvironmentToken = true;
+                    break;
+
+                // Fall D: logged in, but a required permission is missing.
+                case AuthenticationState.MissingRequiredScopes:
+                    Log = $"{auth.Summary}\n\n" +
+                          L.T("Klicke auf \"GitHub Rechte: repo + workflow\", um die fehlende Berechtigung zu ergänzen — eine komplette Neuanmeldung ist nicht nötig.",
+                              "Click \"GitHub Scopes: repo + workflow\" to add the missing permission — a full re-login isn't necessary.");
+                    break;
+
+                // Fall C: no valid login at all — start the real login flow.
+                default:
+                    var result = await _gh.OpenAuthLoginTerminalAsync();
+                    Log = result.Success
+                        ? L.T("GitHub-Login wurde in einem separaten Terminalfenster gestartet.\n\nDort den Browser-Code bestätigen. Danach hier 'Umgebung prüfen' drücken.",
+                              "GitHub login was started in a separate terminal window.\n\nConfirm the browser code there. Then click 'Check Environment' here.")
+                        : result.CombinedOutput;
+                    break;
+            }
+        });
+    }
+
+    /// <summary>
+    /// One-click repair for the reference bug: an invalid GH_TOKEN/GITHUB_TOKEN in the
+    /// Windows user environment hiding an otherwise valid `gh` keyring login. Never touches
+    /// the keyring itself, never modifies system (HKLM) variables, and re-verifies the
+    /// result immediately afterwards so the app can enable push again without a restart.
+    /// </summary>
+    private async Task RepairEnvironmentTokenAsync()
+    {
+        await Busy(async () =>
+        {
+            var plan = GitHubEnvironmentRepairService.CreatePlan();
+
+            var intro = L.T(
+                "Ein ungültiger Token in der Windows-Umgebung verhindert die Nutzung Ihrer bereits gültigen GitHub-Anmeldung.\n\n" +
+                "Der Token wird aus der Benutzer-Umgebung entfernt. Die sichere Anmeldung im Windows-Schlüsselspeicher bleibt erhalten.\n",
+                "An invalid token in the Windows environment is preventing use of your already-valid GitHub login.\n\n" +
+                "The token will be removed from the user environment. The secure login in the Windows credential store remains untouched.\n");
+
+            var result = GitHubEnvironmentRepairService.Repair(plan);
+            var auth = await _authDiagnostics.DiagnoseAsync();
+
+            var sb = new StringBuilder();
+            sb.AppendLine(intro);
+            sb.AppendLine(result.Success
+                ? L.T("Reparatur erfolgreich", "Repair successful")
+                : L.T("Reparatur teilweise fehlgeschlagen", "Repair partially failed"));
+            sb.AppendLine();
+            sb.AppendLine(L.T("Behoben:", "Fixed:"));
+            foreach (var step in result.Steps)
+                sb.AppendLine($"{(step.Success ? "✅" : "❌")} {step.Name} ({step.Scope}): {step.Message}");
+            sb.AppendLine();
+            sb.AppendLine($"{L.T("Erneute Prüfung:", "Re-checked:")} {auth.Summary}");
+            if (!string.IsNullOrWhiteSpace(auth.TechnicalDetails))
+            {
+                sb.AppendLine();
+                sb.AppendLine(L.T("Technische Details:", "Technical details:"));
+                sb.AppendLine(auth.TechnicalDetails);
+            }
+
+            Log = sb.ToString();
+            CanRepairEnvironmentToken = auth.State == AuthenticationState.EnvironmentTokenOverridesValidKeyring;
+        });
+    }
+
+    /// <summary>
+    /// One-click repair for a remote URL that embeds credentials (or an unresolved
+    /// placeholder like DEIN_VORHANDENER_TOKEN) — resets it to the canonical,
+    /// credential-free form. The token value itself is never shown or logged.
+    /// </summary>
+    private async Task SanitizeRemoteAsync()
+    {
+        await Busy(async () =>
+        {
+            if (string.IsNullOrWhiteSpace(LocalPath))
+            {
+                Log = L.T("Kein lokaler Ordner ausgewählt.", "No local folder selected.");
+                return;
+            }
+
+            var status = await _git.GetStatusAsync(LocalPath);
+            if (!status.IsRepository || string.IsNullOrWhiteSpace(status.RemoteOrigin))
+            {
+                Log = L.T("Keine Remote-URL gefunden.", "No remote URL found.");
+                return;
+            }
+
+            var sanitized = RemoteUrlNormalizer.Sanitize(status.RemoteOrigin);
+            var result = await _git.SetRemoteOriginAsync(LocalPath, sanitized);
             Log = result.Success
-                ? "GitHub-Login wurde in einem separaten Terminalfenster gestartet.\n\nDort den Browser-Code bestätigen. Danach hier 'Umgebung prüfen' drücken."
-                : result.CombinedOutput;
+                ? L.T($"Remote sicher bereinigt.\n\nNeue Remote-URL: {sanitized}",
+                      $"Remote cleaned up safely.\n\nNew remote URL: {sanitized}")
+                : EnrichWithErrorHint(result.CombinedOutput);
+            CanSanitizeRemote = !result.Success;
+        });
+    }
+
+    /// <summary>
+    /// Writes a redacted diagnostic report a user can hand to a developer or paste
+    /// into an AI chat for help. Never contains tokens, passwords, or other secrets.
+    /// </summary>
+    private async Task ExportDiagnosticsAsync()
+    {
+        await Busy(async () =>
+        {
+            var gitVersion = await _git.VersionAsync();
+            var ghVersion = await _gh.VersionAsync();
+            var auth = await _authDiagnostics.DiagnoseAsync();
+
+            GitStatusResult? status = null;
+            if (!string.IsNullOrWhiteSpace(LocalPath))
+                status = await _git.GetStatusAsync(LocalPath);
+
+            var osDescription = System.Runtime.InteropServices.RuntimeInformation.OSDescription;
+            var appVersion = GetType().Assembly.GetName().Version?.ToString() ?? L.T("unbekannt", "unknown");
+
+            var report = DiagnosticReportService.Generate(
+                appVersion,
+                osDescription,
+                gitVersion.CombinedOutput.Trim(),
+                ghVersion.CombinedOutput.Trim(),
+                LocalPath,
+                status?.RemoteOrigin,
+                status?.Branch ?? string.Empty,
+                auth);
+
+            var fileName = $"AI-GitHub-Manager-Diagnose_{DateTime.Now:yyyyMMdd_HHmmss}.txt";
+            var path = Path.Combine(Path.GetTempPath(), fileName);
+            await File.WriteAllTextAsync(path, report);
+
+            Log = L.T($"Diagnosebericht gespeichert:\n{path}\n\n",
+                      $"Diagnostic report saved:\n{path}\n\n") +
+                  L.T("Enthält keine Tokens oder Passwörter — kann sicher an einen Entwickler weitergegeben werden.\n\n",
+                      "Contains no tokens or passwords — safe to share with a developer.\n\n") +
+                  "──────────────────────────────\n\n" + report;
+        });
+    }
+
+    /// <summary>
+    /// Self-service release step: builds, then tests, then commits+pushes — in that
+    /// order, stopping immediately on the first failure. Never pushes code that
+    /// doesn't build or whose tests fail. Intended for .NET projects (like this
+    /// manager's own repository); other project types get a clear "no build
+    /// system found" message instead of a confusing failure.
+    /// </summary>
+    private async Task BuildTestAndPushAsync()
+    {
+        await Busy(async () =>
+        {
+            if (string.IsNullOrWhiteSpace(LocalPath))
+            {
+                Log = L.T("Kein lokaler Ordner ausgewählt.", "No local folder selected.");
+                return;
+            }
+
+            var sb = new StringBuilder();
+
+            sb.AppendLine(L.T("Schritt 1/3: Build …", "Step 1/3: Build …"));
+            var build = await _projectBuild.BuildAsync(LocalPath);
+            sb.AppendLine(build.CombinedOutput.Trim());
+            if (!build.Success)
+            {
+                sb.AppendLine();
+                sb.AppendLine(L.T("❌ Build fehlgeschlagen. Test und Push wurden übersprungen.",
+                                   "❌ Build failed. Test and push were skipped."));
+                Log = sb.ToString();
+                return;
+            }
+
+            sb.AppendLine();
+            sb.AppendLine(L.T("Schritt 2/3: Test …", "Step 2/3: Test …"));
+            var test = await _projectBuild.TestAsync(LocalPath);
+            sb.AppendLine(test.CombinedOutput.Trim());
+            if (!test.Success)
+            {
+                sb.AppendLine();
+                sb.AppendLine(L.T("❌ Tests fehlgeschlagen. Push wurde übersprungen.",
+                                   "❌ Tests failed. Push was skipped."));
+                Log = sb.ToString();
+                return;
+            }
+
+            sb.AppendLine();
+            sb.AppendLine(L.T("Schritt 3/3: Commit + Push …", "Step 3/3: Commit + Push …"));
+            var push = await _git.CommitAndPushAsync(LocalPath, CommitMessage);
+            sb.AppendLine(push.Success ? push.CombinedOutput.Trim() : EnrichWithErrorHint(push.CombinedOutput));
+            sb.AppendLine();
+            sb.AppendLine(push.Success
+                ? L.T("✅ Build, Test und Push erfolgreich.", "✅ Build, test, and push successful.")
+                : L.T("⚠️ Build und Test erfolgreich, aber Push fehlgeschlagen.",
+                      "⚠️ Build and test succeeded, but push failed."));
+
+            Log = sb.ToString();
+        });
+    }
+
+    /// <summary>
+    /// Creates a distributable installer for the current project on this platform
+    /// (Windows: publish + Inno Setup; macOS: build-installer-mac.sh). Can take
+    /// several minutes — the log is only updated once the whole step finishes.
+    /// </summary>
+    private async Task CreateInstallerAsync()
+    {
+        await Busy(async () =>
+        {
+            if (string.IsNullOrWhiteSpace(LocalPath))
+            {
+                Log = L.T("Kein lokaler Ordner ausgewählt.", "No local folder selected.");
+                return;
+            }
+
+            if (!_installerBuild.IsSupportedOnCurrentPlatform)
+            {
+                Log = L.T("Installer-Erstellung wird auf diesem Betriebssystem nicht unterstützt (nur Windows/macOS).",
+                          "Installer creation isn't supported on this operating system (Windows/macOS only).");
+                return;
+            }
+
+            Log = L.T("Installer wird erstellt … das kann einige Minuten dauern.",
+                      "Creating installer … this can take a few minutes.");
+
+            var result = await _installerBuild.CreateInstallerAsync(LocalPath);
+
+            Log = (result.Success
+                ? L.T("✅ Installer erstellt.\n\n", "✅ Installer created.\n\n")
+                : L.T("❌ Installer-Erstellung fehlgeschlagen.\n\n", "❌ Installer creation failed.\n\n"))
+                + result.CombinedOutput.Trim();
+
+            RefreshInnoSetupAvailability();
         });
     }
 
@@ -250,7 +572,8 @@ public sealed class MainWindowViewModel : ViewModelBase
         {
             var result = await _gh.OpenInstallGitHubCliTerminalAsync();
             Log = result.Success
-                ? "GitHub-CLI-Installation wurde in einem separaten Terminalfenster gestartet.\n\nNach der Installation Visual Studio/App neu starten und dann GitHub Login ausführen."
+                ? L.T("GitHub-CLI-Installation wurde in einem separaten Terminalfenster gestartet.\n\nNach der Installation Visual Studio/App neu starten und dann GitHub Login ausführen.",
+                      "GitHub CLI installation was started in a separate terminal window.\n\nAfter installation, restart Visual Studio/the app and then run GitHub Login.")
                 : result.CombinedOutput;
         });
     }
@@ -285,7 +608,7 @@ public sealed class MainWindowViewModel : ViewModelBase
                 ApplyPathToSelectedProject();
                 SelectedProject.UpdatedAt = DateTimeOffset.UtcNow;
                 await _store.SaveAsync(Projects);
-                Log = "Ordner ausgewählt und Projekt gespeichert.";
+                Log = L.T("Ordner ausgewählt und Projekt gespeichert.", "Folder selected and project saved.");
             }
         }
     }
@@ -299,7 +622,7 @@ public sealed class MainWindowViewModel : ViewModelBase
         await Busy(async () =>
         {
             var folderName = Path.GetFileName(path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
-            var project = new ManagedProject { Name = string.IsNullOrWhiteSpace(folderName) ? "Neues Projekt" : folderName };
+            var project = new ManagedProject { Name = string.IsNullOrWhiteSpace(folderName) ? L.T("Neues Projekt", "New Project") : folderName };
 
             if (OperatingSystem.IsWindows())    project.WindowsPath = path;
             else if (OperatingSystem.IsMacOS()) project.MacPath     = path;
@@ -320,7 +643,7 @@ public sealed class MainWindowViewModel : ViewModelBase
             Projects.Add(project);
             SelectedProject = project;
             await _store.SaveAsync(Projects);
-            Log = $"Projekt '{project.Name}' hinzugefügt.";
+            Log = L.T($"Projekt '{project.Name}' hinzugefügt.", $"Project '{project.Name}' added.");
         });
     }
 
@@ -331,7 +654,7 @@ public sealed class MainWindowViewModel : ViewModelBase
         Projects.Remove(SelectedProject);
         SelectedProject = Projects.FirstOrDefault();
         await _store.SaveAsync(Projects);
-        Log = $"Projekt '{name}' entfernt.";
+        Log = L.T($"Projekt '{name}' entfernt.", $"Project '{name}' removed.");
     }
 
     private async Task ImportGitHubReposAsync()
@@ -341,7 +664,8 @@ public sealed class MainWindowViewModel : ViewModelBase
             var repos = await _gh.ListRepositoriesAsync();
             if (repos.Count == 0)
             {
-                Log = "Keine Repositories gefunden. Bitte erst GitHub Login ausführen.";
+                Log = L.T("Keine Repositories gefunden. Bitte erst GitHub Login ausführen.",
+                          "No repositories found. Please run GitHub Login first.");
                 return;
             }
 
@@ -367,8 +691,8 @@ public sealed class MainWindowViewModel : ViewModelBase
 
             await _store.SaveAsync(Projects);
             Log = added > 0
-                ? $"{added} Repositories von GitHub importiert."
-                : "Alle Repositories bereits vorhanden.";
+                ? L.T($"{added} Repositories von GitHub importiert.", $"{added} repositories imported from GitHub.")
+                : L.T("Alle Repositories bereits vorhanden.", "All repositories already present.");
         });
     }
 
@@ -400,18 +724,20 @@ public sealed class MainWindowViewModel : ViewModelBase
         if (result.IsUpdateAvailable)
         {
             _updateDownloadUrl = result.DirectDownloadUrl ?? result.ReleasePageUrl;
-            UpdateNotice = $"⬆ Update verfügbar: v{result.LatestVersion}  (aktuell: v{result.CurrentVersion})";
+            UpdateNotice = L.T($"⬆ Update verfügbar: v{result.LatestVersion}  (aktuell: v{result.CurrentVersion})",
+                                $"⬆ Update available: v{result.LatestVersion}  (current: v{result.CurrentVersion})");
             foreach (var cmd in _allCommands) cmd.RaiseCanExecuteChanged();
 
             if (!silent)
-                Log = $"Neue Version gefunden: v{result.LatestVersion}\n\nJetzt herunterladen → {_updateDownloadUrl}";
+                Log = L.T($"Neue Version gefunden: v{result.LatestVersion}\n\nJetzt herunterladen → {_updateDownloadUrl}",
+                          $"New version found: v{result.LatestVersion}\n\nDownload now → {_updateDownloadUrl}");
         }
         else if (!silent)
         {
             UpdateNotice = string.Empty;
             Log = string.IsNullOrEmpty(result.ErrorMessage)
-                ? $"App ist aktuell (v{result.CurrentVersion})."
-                : $"Update-Check: {result.ErrorMessage}";
+                ? L.T($"App ist aktuell (v{result.CurrentVersion}).", $"App is up to date (v{result.CurrentVersion}).")
+                : L.T($"Update-Check: {result.ErrorMessage}", $"Update check: {result.ErrorMessage}");
         }
     }
 
@@ -424,7 +750,38 @@ public sealed class MainWindowViewModel : ViewModelBase
         }
         catch (Exception ex)
         {
-            Log = $"Download konnte nicht geöffnet werden: {ex.Message}\n\n{_updateDownloadUrl}";
+            Log = L.T($"Download konnte nicht geöffnet werden: {ex.Message}\n\n{_updateDownloadUrl}",
+                      $"Could not open download: {ex.Message}\n\n{_updateDownloadUrl}");
+        }
+    }
+
+    /// <summary>
+    /// Re-checks whether Inno Setup 6 is installed and updates the visibility
+    /// of the proactive "Install Inno Setup" button accordingly. Called at
+    /// startup, after every environment check, and after every "Create
+    /// Installer" run — so the button disappears on its own once Inno Setup
+    /// has been installed, without requiring an app restart.
+    /// </summary>
+    private void RefreshInnoSetupAvailability()
+    {
+        ShowInstallInnoSetup = !_installerBuild.IsInnoSetupInstalled;
+    }
+
+    /// <summary>
+    /// Opens the official Inno Setup download page in the user's default
+    /// browser. Never downloads or executes an installer silently — the user
+    /// stays in control of installing third-party software on their machine.
+    /// </summary>
+    private void OpenInnoSetupDownload()
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo(InstallerBuildService.InnoSetupDownloadUrl) { UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            Log = L.T($"Download-Seite konnte nicht geöffnet werden: {ex.Message}\n\n{InstallerBuildService.InnoSetupDownloadUrl}",
+                      $"Could not open download page: {ex.Message}\n\n{InstallerBuildService.InnoSetupDownloadUrl}");
         }
     }
 
@@ -439,10 +796,10 @@ public sealed class MainWindowViewModel : ViewModelBase
         var sb = new StringBuilder();
         sb.AppendLine(rawOutput.TrimEnd());
         sb.AppendLine();
-        sb.AppendLine("── Fehleranalyse ────────────────────────────");
-        sb.AppendLine($"Ursache: {info.UserMessage}");
+        sb.AppendLine(L.T("── Fehleranalyse ────────────────────────────", "── Error analysis ────────────────────────────"));
+        sb.AppendLine($"{L.T("Ursache:", "Cause:")} {info.UserMessage}");
         if (!string.IsNullOrWhiteSpace(info.Hint))
-            sb.AppendLine($"Lösung:  {info.Hint}");
+            sb.AppendLine($"{L.T("Lösung: ", "Solution:")} {info.Hint}");
         return sb.ToString().TrimEnd();
     }
 

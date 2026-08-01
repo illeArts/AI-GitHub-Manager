@@ -18,15 +18,18 @@ public sealed class EnvironmentCheckService
     {
         var gitVersion = await Safe(() => _git.VersionAsync());
         var ghVersion = await Safe(() => _gh.VersionAsync());
-        var auth = await Safe(() => _gh.AuthStatusAsync());
+
+        var authService = new AuthenticationDiagnosticService(_gh);
+        var auth = await authService.DiagnoseAsync();
 
         return new EnvironmentCheckResult(
             gitVersion.success,
             ghVersion.success,
-            auth.success,
+            auth.IsUsable,
             gitVersion.output,
             ghVersion.output,
-            auth.output);
+            auth.Summary + (string.IsNullOrWhiteSpace(auth.TechnicalDetails) ? string.Empty : "\n\n" + auth.TechnicalDetails),
+            auth);
     }
 
     private static async Task<(bool success, string output)> Safe(Func<Task<Process.CommandResult>> action)
