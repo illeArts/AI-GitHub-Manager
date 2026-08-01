@@ -18,6 +18,15 @@ Repositories unter `docs/testing/RELEASE_QA_v1.6.2.md`.
 
 ## ⚠️ Bekannte Einschränkung vor Testbeginn (Block 2, macOS)
 
+> **Gültigkeit dieses Hinweises: nur v1.6.2.** BLOCKED ist ein temporärer
+> Releasezustand, kein dauerhafter Bestandteil dieser QA-Vorlage. Sobald der
+> macOS-Release-Workflow ein passendes `macos-x64.zip`/`macos-arm64.zip` erzeugt
+> (Option a, b oder c unten), **entfällt dieser gesamte Abschnitt** in der nächsten
+> Version dieser Datei — die macOS-Update-Tests laufen dann wie 2.1/2.4 regulär mit
+> und werden nicht mehr als BLOCKED geführt. Bitte beim Fortschreiben auf v1.6.3 ff.
+> aktiv prüfen, ob dieser Hinweis noch zutrifft, statt ihn unreflektiert zu
+> übernehmen.
+
 Der aktuelle Release-Workflow (`.github/workflows/release-v1.6.2.yml`, Job
 `portable-packages`) baut und veröffentlicht **nur** `windows-x64` und `linux-x64` —
 es gibt aktuell **keinen** CI-Job, der ein macOS-Paket erzeugt oder hochlädt. Das
@@ -344,6 +353,8 @@ Kurzer Rundgang durch die Kernfunktionen, um sicherzustellen, dass keine der
 | 5.7 | **Settings** — Einstellungsfenster öffnen, „Sicherer Pull …" vs. „Bei lokalen Änderungen nur warnen …" umschalten, Fenster schließen und erneut öffnen | Auswahl bleibt nach Neustart des Fensters/der App erhalten | ~2 Min. |
 | 5.8 | **About** — Über-Fenster öffnen | Zeigt `v1.6.2`, Logo und Text vollständig ohne Abschneiden (siehe Block 1.2) | ~1 Min. |
 | 5.9 | **Update** — „Auf Updates prüfen" ohne vorhandenes neueres Release | Log meldet „App ist aktuell (v1.6.2)."; kein falsches Banner | ~1 Min. |
+| 5.10 | **Repository löschen** — „− Entfernen" für ein Projekt in der Liste klicken | Projekt verschwindet sauber aus der Liste, JSON-Projektstore wird aktualisiert (Log: „Projekt '{Name}' entfernt."); lokale Projektdateien auf der Festplatte bleiben in jedem Fall unangetastet — die Aktion entfernt ausschließlich den Eintrag aus der App-internen Projektverwaltung, niemals Dateien auf der Festplatte | ~2 Min. |
+| 5.11 | **Update nach Update** — nach einem erfolgreich durchgeführten Update (Block 2) erneut „Auf Updates prüfen" klicken | Log meldet „App ist aktuell (v{neue Version})."; kein erneutes „Update verfügbar"-Banner für die soeben installierte Version | ~1 Min. |
 
 **FAIL-Kriterium (gesamter Block):** Irgendeine Zeile weicht vom erwarteten Ergebnis
 ab. → **Screenshot der jeweils abweichenden Zeile erforderlich.**
@@ -386,6 +397,19 @@ GO / NO GO   (Zutreffendes eintragen)
 _______________________________________________________________
 
 _______________________________________________________________
+
+**Freigabe** (bewusst getrennt: technisch bestanden ≠ für Release freigegeben):
+
+```text
+Technische Freigabe:
+_____________________
+
+Produktfreigabe:
+_____________________
+
+Datum:
+_____________________
+```
 
 **Falls NO GO:** Konkrete fehlgeschlagene Tests, betroffene Commits/Dateien und
 nächste Schritte hier auflisten, bevor ein erneuter Anlauf gestartet wird.
