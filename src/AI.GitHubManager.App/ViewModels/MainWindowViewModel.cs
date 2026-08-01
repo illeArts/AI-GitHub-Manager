@@ -900,6 +900,26 @@ public sealed class MainWindowViewModel : ViewModelBase
 
         if (check.InterruptedState is not null)
             Log += "\n\n⚠ " + check.InterruptedState.Message;
+
+        // A detected .git/index.lock must never be silently omitted from the log —
+        // otherwise an earlier "Alle kritischen Checks bestanden" text (from the
+        // unrelated SyncPreflightService/EnvironmentCheckService report, which has
+        // no knowledge of index.lock at all) stands uncontested even though a lock
+        // exists and Pull/Push are actually blocked. Surface it explicitly here,
+        // for every non-NoLockPresent status, regardless of whether it also carries
+        // an interrupted-state marker.
+        if (check.Status != GitLockStatus.NoLockPresent)
+        {
+            var icon = check.Status switch
+            {
+                GitLockStatus.OrphanedRemovable => "🔓",
+                GitLockStatus.ActiveProcessDetected => "⏳",
+                _ => "⚠",
+            };
+            Log += "\n\n" + icon + " " + L.T(
+                "Git-Sperre erkannt (.git/index.lock): ",
+                "Git lock detected (.git/index.lock): ") + check.Message;
+        }
     }
 
     /// <summary>
