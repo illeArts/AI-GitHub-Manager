@@ -5,10 +5,12 @@ using System.Text.RegularExpressions;
 using System.Windows.Input;
 using AI.GitHubManager.App.Services;
 using AI.GitHubManager.Core.Diagnostics;
+using AI.GitHubManager.Core.EnvironmentRepair;
 using AI.GitHubManager.Core.Git;
 using AI.GitHubManager.Core.GitHub;
 using AI.GitHubManager.Core.Process;
 using AI.GitHubManager.Core.Projects;
+using AI.GitHubManager.Core.Remote;
 using AI.GitHubManager.Core.Update;
 using AI.GitHubManager.Data;
 
@@ -21,6 +23,7 @@ public sealed class MainWindowViewModel : ViewModelBase
     private readonly GitHubCliService _gh;
     private readonly EnvironmentCheckService _checks;
     private readonly SyncPreflightService _preflight;
+    private readonly AuthenticationDiagnosticService _authDiagnostics;
     private readonly UpdateCheckService _updateCheck = new();
     private readonly JsonProjectStore _store = new();
 
@@ -31,6 +34,8 @@ public sealed class MainWindowViewModel : ViewModelBase
     private bool _isBusy;
     private string _updateNotice = string.Empty;
     private string? _updateDownloadUrl;
+    private bool _canRepairEnvironmentToken;
+    private bool _canSanitizeRemote;
 
     private RelayCommand[] _allCommands = Array.Empty<RelayCommand>();
 
@@ -39,10 +44,11 @@ public sealed class MainWindowViewModel : ViewModelBase
 
     public MainWindowViewModel()
     {
-        _git       = new GitService(_runner);
-        _gh        = new GitHubCliService(_runner);
-        _checks    = new EnvironmentCheckService(_git, _gh);
-        _preflight = new SyncPreflightService(_git, _gh);
+        _git             = new GitService(_runner);
+        _gh              = new GitHubCliService(_runner);
+        _checks          = new EnvironmentCheckService(_git, _gh);
+        _preflight       = new SyncPreflightService(_git, _gh);
+        _authDiagnostics = new AuthenticationDiagnosticService(_gh);
 
         Projects = new ObservableCollection<ManagedProject>();
 
@@ -62,6 +68,9 @@ public sealed class MainWindowViewModel : ViewModelBase
         var importGitHub     = new RelayCommand(ImportGitHubReposAsync,      () => !IsBusy);
         var openUpdate       = new RelayCommand(() => { OpenUpdateDownload(); return Task.CompletedTask; }, () => !string.IsNullOrEmpty(_updateDownloadUrl));
         var checkUpdateNow   = new RelayCommand(CheckForUpdateAsync,         () => !IsBusy);
+        var repairToken      = new RelayCommand(RepairEnvironmentTokenAsync, () => !IsBusy);
+        var sanitizeRemote   = new RelayCommand(SanitizeRemoteAsync,         () => !IsBusy);
+        var exportDiagnostics = new RelayCommand(ExportDiagnosticsAsync,     () => !IsBusy);
 
         CheckEnvironmentCommand     = checkEnv;
         LoadProjectsCommand         = loadProjects;
@@ -79,13 +88,16 @@ public sealed class MainWindowViewModel : ViewModelBase
         ImportGitHubReposCommand    = importGitHub;
         OpenUpdateCommand           = openUpdate;
         CheckForUpdateCommand       = checkUpdateNow;
+        RepairEnvironmentTokenCommand = repairToken;
+        SanitizeRemoteCommand         = sanitizeRemote;
+        ExportDiagnosticsCommand      = exportDiagnostics;
 
         _allCommands = new[]
         {
             checkEnv, loadProjects, saveProject, gitStatus, pull,
             commitPush, refreshScope, setupGit, loginGitHub, installCli,
             pickFolder, addProject, removeProject, importGitHub,
-            openUpdate, checkUpdateNow
+            openUpdate, checkUpdateNow, repairToken, sanitizeRemote, exportDiagnostics
         };
 
         _ = LoadProjectsAsync();
@@ -112,6 +124,9 @@ public sealed class MainWindowViewModel : ViewModelBase
     public ICommand ImportGitHubReposCommand    { get; }
     public ICommand OpenUpdateCommand           { get; }
     public ICommand CheckForUpdateCommand       { get; }
+    public ICommand RepairEnvironmentTokenCommand { get; }
+    public ICommand SanitizeRemoteCommand         { get; }
+    public ICommand ExportDiagnosticsCommand      { get; }
 
     public ManagedProject? SelectedProject
     {
@@ -144,6 +159,23 @@ public sealed class MainWindowViewModel : ViewModelBase
     /// <summary>Controls update banner visibility.</summary>
     public bool HasUpdateNotice => !string.IsNullOrEmpty(_updateNotice);
 
+    /// <summary>
+    /// True when the last check found a state where an invalid GH_TOKEN/GITHUB_TOKEN
+    /// is hiding a valid `gh` keyring login. Controls the repair button's visibility.
+    /// </summary>
+    public bool CanRepairEnvironmentToken
+    {
+        get => _canRepairEnvironmentToken;
+        private set => SetProperty(ref _canRepairEnvironmentToken, value);
+    }
+
+    /// <summary>True when the current remote origin contains embedded credentials or a placeholder.</summary>
+    public bool CanSanitizeRemote
+    {
+        get => _canSanitizeRemote;
+        private set => SetProperty(ref _canSanitizeRemote, value);
+    }
+
     public bool IsBusy
     {
         get => _isBusy;
@@ -165,6 +197,8 @@ public sealed class MainWindowViewModel : ViewModelBase
             {
                 var preflight = await _preflight.CheckAsync(SelectedProject);
                 Log = preflight.ToLogText();
+                CanRepairEnvironmentToken = preflight.Items.Any(i => i.RepairActionId == "repair-environment-token");
+                CanSanitizeRemote         = preflight.Items.Any(i => i.RepairActionId == "sanitize-remote");
             }
             else
             {
@@ -172,6 +206,8 @@ public sealed class MainWindowViewModel : ViewModelBase
                 Log = $"Git: {(check.GitInstalled ? "OK" : "FEHLT")}\n{check.GitVersion}" +
                       $"\n\nGitHub CLI: {(check.GitHubCliInstalled ? "OK" : "FEHLT")}\n{check.GitHubCliVersion}" +
                       $"\n\nLogin: {(check.GitHubAuthenticated ? "OK" : "NICHT OK")}\n{check.GitHubAuthOutput}";
+                CanRepairEnvironmentToken = check.Authentication?.State == AuthenticationState.EnvironmentTokenOverridesValidKeyring;
+                CanSanitizeRemote = false;
             }
         });
     }
@@ -233,14 +269,158 @@ public sealed class MainWindowViewModel : ViewModelBase
         });
     }
 
+    /// <summary>
+    /// Guided GitHub login: checks the actual authentication state first and
+    /// only starts a real login flow when one is genuinely needed. A layperson
+    /// never has to know what an environment variable, a token, or the Windows
+    /// keyring is — the app tells them exactly what happened and what to do.
+    /// </summary>
     private async Task LoginGitHubAsync()
     {
         await Busy(async () =>
         {
-            var result = await _gh.OpenAuthLoginTerminalAsync();
+            var auth = await _authDiagnostics.DiagnoseAsync();
+
+            switch (auth.State)
+            {
+                // Fall A: already logged in — nothing to do.
+                case AuthenticationState.AuthenticatedViaKeyring:
+                case AuthenticationState.Authenticated:
+                case AuthenticationState.AuthenticatedViaEnvironmentToken:
+                    Log = $"✅ GitHub-Konto verbunden: {auth.ActiveAccount}\n\nKein erneuter Login erforderlich.";
+                    CanRepairEnvironmentToken = false;
+                    break;
+
+                // Fall B: a bad token is hiding a valid login — offer the one-click repair.
+                case AuthenticationState.EnvironmentTokenOverridesValidKeyring:
+                    Log = $"{auth.Summary}\n\n" +
+                          "Klicke auf \"Ungültigen Token entfernen und Anmeldung reparieren\", um das automatisch zu beheben.";
+                    CanRepairEnvironmentToken = true;
+                    break;
+
+                // Fall D: logged in, but a required permission is missing.
+                case AuthenticationState.MissingRequiredScopes:
+                    Log = $"{auth.Summary}\n\nKlicke auf \"GitHub Rechte: repo + workflow\", um die fehlende Berechtigung zu ergänzen — eine komplette Neuanmeldung ist nicht nötig.";
+                    break;
+
+                // Fall C: no valid login at all — start the real login flow.
+                default:
+                    var result = await _gh.OpenAuthLoginTerminalAsync();
+                    Log = result.Success
+                        ? "GitHub-Login wurde in einem separaten Terminalfenster gestartet.\n\nDort den Browser-Code bestätigen. Danach hier 'Umgebung prüfen' drücken."
+                        : result.CombinedOutput;
+                    break;
+            }
+        });
+    }
+
+    /// <summary>
+    /// One-click repair for the reference bug: an invalid GH_TOKEN/GITHUB_TOKEN in the
+    /// Windows user environment hiding an otherwise valid `gh` keyring login. Never touches
+    /// the keyring itself, never modifies system (HKLM) variables, and re-verifies the
+    /// result immediately afterwards so the app can enable push again without a restart.
+    /// </summary>
+    private async Task RepairEnvironmentTokenAsync()
+    {
+        await Busy(async () =>
+        {
+            var plan = GitHubEnvironmentRepairService.CreatePlan();
+
+            var intro =
+                "Ein ungültiger Token in der Windows-Umgebung verhindert die Nutzung Ihrer bereits gültigen GitHub-Anmeldung.\n\n" +
+                "Der Token wird aus der Benutzer-Umgebung entfernt. Die sichere Anmeldung im Windows-Schlüsselspeicher bleibt erhalten.\n";
+
+            var result = GitHubEnvironmentRepairService.Repair(plan);
+            var auth = await _authDiagnostics.DiagnoseAsync();
+
+            var sb = new StringBuilder();
+            sb.AppendLine(intro);
+            sb.AppendLine(result.Success ? "Reparatur erfolgreich" : "Reparatur teilweise fehlgeschlagen");
+            sb.AppendLine();
+            sb.AppendLine("Behoben:");
+            foreach (var step in result.Steps)
+                sb.AppendLine($"{(step.Success ? "✅" : "❌")} {step.Name} ({step.Scope}): {step.Message}");
+            sb.AppendLine();
+            sb.AppendLine($"Erneute Prüfung: {auth.Summary}");
+            if (!string.IsNullOrWhiteSpace(auth.TechnicalDetails))
+            {
+                sb.AppendLine();
+                sb.AppendLine("Technische Details:");
+                sb.AppendLine(auth.TechnicalDetails);
+            }
+
+            Log = sb.ToString();
+            CanRepairEnvironmentToken = auth.State == AuthenticationState.EnvironmentTokenOverridesValidKeyring;
+        });
+    }
+
+    /// <summary>
+    /// One-click repair for a remote URL that embeds credentials (or an unresolved
+    /// placeholder like DEIN_VORHANDENER_TOKEN) — resets it to the canonical,
+    /// credential-free form. The token value itself is never shown or logged.
+    /// </summary>
+    private async Task SanitizeRemoteAsync()
+    {
+        await Busy(async () =>
+        {
+            if (string.IsNullOrWhiteSpace(LocalPath))
+            {
+                Log = "Kein lokaler Ordner ausgewählt.";
+                return;
+            }
+
+            var status = await _git.GetStatusAsync(LocalPath);
+            if (!status.IsRepository || string.IsNullOrWhiteSpace(status.RemoteOrigin))
+            {
+                Log = "Keine Remote-URL gefunden.";
+                return;
+            }
+
+            var sanitized = RemoteUrlNormalizer.Sanitize(status.RemoteOrigin);
+            var result = await _git.SetRemoteOriginAsync(LocalPath, sanitized);
             Log = result.Success
-                ? "GitHub-Login wurde in einem separaten Terminalfenster gestartet.\n\nDort den Browser-Code bestätigen. Danach hier 'Umgebung prüfen' drücken."
-                : result.CombinedOutput;
+                ? $"Remote sicher bereinigt.\n\nNeue Remote-URL: {sanitized}"
+                : EnrichWithErrorHint(result.CombinedOutput);
+            CanSanitizeRemote = !result.Success;
+        });
+    }
+
+    /// <summary>
+    /// Writes a redacted diagnostic report a user can hand to a developer or paste
+    /// into an AI chat for help. Never contains tokens, passwords, or other secrets.
+    /// </summary>
+    private async Task ExportDiagnosticsAsync()
+    {
+        await Busy(async () =>
+        {
+            var gitVersion = await _git.VersionAsync();
+            var ghVersion = await _gh.VersionAsync();
+            var auth = await _authDiagnostics.DiagnoseAsync();
+
+            GitStatusResult? status = null;
+            if (!string.IsNullOrWhiteSpace(LocalPath))
+                status = await _git.GetStatusAsync(LocalPath);
+
+            var osDescription = System.Runtime.InteropServices.RuntimeInformation.OSDescription;
+            var appVersion = GetType().Assembly.GetName().Version?.ToString() ?? "unbekannt";
+
+            var report = DiagnosticReportService.Generate(
+                appVersion,
+                osDescription,
+                gitVersion.CombinedOutput.Trim(),
+                ghVersion.CombinedOutput.Trim(),
+                LocalPath,
+                status?.RemoteOrigin,
+                status?.Branch ?? string.Empty,
+                auth);
+
+            var fileName = $"AI-GitHub-Manager-Diagnose_{DateTime.Now:yyyyMMdd_HHmmss}.txt";
+            var path = Path.Combine(Path.GetTempPath(), fileName);
+            await File.WriteAllTextAsync(path, report);
+
+            Log = $"Diagnosebericht gespeichert:\n{path}\n\n" +
+                  "Enthält keine Tokens oder Passwörter — kann sicher an einen Entwickler weitergegeben werden.\n\n" +
+                  "──────────────────────────────\n\n" + report;
         });
     }
 

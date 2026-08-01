@@ -97,6 +97,9 @@
             <Grid ColumnDefinitions="*,Auto">
               <TextBlock x:Name="Ts5" Grid.Column="0" Foreground="#aabbcc" FontSize="13" TextWrapping="Wrap" />
             </Grid>
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock x:Name="Ts6" Grid.Column="0" Foreground="#aabbcc" FontSize="13" TextWrapping="Wrap" />
+            </Grid>
           </StackPanel>
         </Border>
 

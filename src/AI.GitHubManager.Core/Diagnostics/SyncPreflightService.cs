@@ -1,6 +1,7 @@
 using AI.GitHubManager.Core.Git;
 using AI.GitHubManager.Core.GitHub;
 using AI.GitHubManager.Core.Projects;
+using AI.GitHubManager.Core.Remote;
 
 namespace AI.GitHubManager.Core.Diagnostics;
 
@@ -9,9 +10,10 @@ namespace AI.GitHubManager.Core.Diagnostics;
 /// Checks (in order):
 ///   1. Git installed
 ///   2. GitHub CLI installed
-///   3. GitHub authenticated
+///   3. GitHub authenticated (full diagnosis — distinguishes "not logged in" from
+///      "a bad GH_TOKEN/GITHUB_TOKEN is hiding a valid keyring login")
 ///   4. Local folder exists and is a Git repository
-///   5. Remote origin is set and matches the project's configured URL
+///   5. Remote origin is set, credential-free, and matches the project's configured URL
 ///   6. Active branch detected
 ///   7. No uncommitted changes (warning only)
 ///   8. No merge conflict markers (.git/MERGE_HEAD)
@@ -46,52 +48,66 @@ public sealed class SyncPreflightService
             ? Ok("GitHub CLI",    ghVer.output)
             : Error("GitHub CLI", "GitHub CLI (gh) nicht gefunden. Bitte installieren."));
 
-        // ── 3. GitHub authenticated ──────────────────────────────────────────
-        var auth = await Safe(() => _gh.AuthStatusAsync());
-        items.Add(auth.ok
-            ? Ok("Authentifizierung",    "Eingeloggt.")
-            : Error("Authentifizierung", "Nicht bei GitHub eingeloggt. Bitte 'GitHub Login' ausführen."));
-
-        // Resolve local path for this platform
+        // Resolve local path for this platform (needed before the scope check,
+        // since workflow-file presence determines which scopes are required).
         var localPath = ResolveLocalPath(project);
+        bool needsWorkflowScope = !string.IsNullOrWhiteSpace(localPath)
+                                   && Directory.Exists(localPath)
+                                   && HasWorkflowFiles(localPath);
+        var requiredScopes = needsWorkflowScope
+            ? AuthenticationDiagnosticService.WorkflowScopes
+            : AuthenticationDiagnosticService.DefaultScopes;
+
+        // ── 3. GitHub authenticated (structured diagnosis) ──────────────────
+        var authService = new AuthenticationDiagnosticService(_gh);
+        var auth = await authService.DiagnoseAsync(requiredScopes, cancellationToken);
+        items.Add(BuildAuthItem(auth));
 
         // ── 4. Local folder / Git repository ────────────────────────────────
         if (string.IsNullOrWhiteSpace(localPath))
         {
             items.Add(Error("Lokaler Ordner", "Kein lokaler Pfad konfiguriert. Bitte Ordner auswählen."));
-            return new SyncPreflightResult(items);
+            return new SyncPreflightResult(items, authentication: auth);
         }
 
         if (!Directory.Exists(localPath))
         {
             items.Add(Error("Lokaler Ordner", $"Ordner nicht gefunden: {localPath}"));
-            return new SyncPreflightResult(items);
+            return new SyncPreflightResult(items, authentication: auth);
         }
 
         var status = await _git.GetStatusAsync(localPath, cancellationToken);
         if (!status.IsRepository)
         {
             items.Add(Error("Git-Repository", status.ErrorMessage ?? "Der Ordner ist kein Git-Repository."));
-            return new SyncPreflightResult(items, remoteOrigin: string.Empty);
+            return new SyncPreflightResult(items, remoteOrigin: string.Empty, authentication: auth);
         }
 
         items.Add(Ok("Git-Repository", "Gültig."));
 
-        var branch      = status.Branch;
+        var branch       = status.Branch;
         var remoteOrigin = status.RemoteOrigin;
+        var remoteInfo   = RemoteUrlNormalizer.Parse(remoteOrigin);
 
-        // ── 5. Remote origin matches project URL ─────────────────────────────
+        // ── 5. Remote origin: presence, safety, and equivalence ─────────────
         if (string.IsNullOrWhiteSpace(remoteOrigin))
         {
             items.Add(Error("Remote origin", "Remote 'origin' ist nicht gesetzt."));
         }
+        else if (RemoteUrlNormalizer.ContainsCredentials(remoteOrigin) || RemoteUrlNormalizer.ContainsPlaceholderToken(remoteOrigin))
+        {
+            items.Add(new PreflightItem(
+                "Remote origin",
+                PreflightSeverity.Warning,
+                "⚠️ Die Remote-URL enthält Zugangsdaten. Dies ist unsicher.",
+                CanAutoRepair: true,
+                RepairActionId: "sanitize-remote"));
+        }
         else if (!string.IsNullOrWhiteSpace(project.RemoteUrl))
         {
-            var normalLocal   = NormalizeUrl(remoteOrigin);
-            var normalProject = NormalizeUrl(project.RemoteUrl);
-            items.Add(normalLocal.Equals(normalProject, StringComparison.OrdinalIgnoreCase)
-                ? Ok("Remote origin",      remoteOrigin)
-                : Warn("Remote origin",    $"Konfiguriert: '{project.RemoteUrl}', tatsächlich: '{remoteOrigin}'. Bitte 'Remote setzen' ausführen."));
+            items.Add(RemoteUrlNormalizer.AreEquivalent(remoteOrigin, project.RemoteUrl)
+                ? Ok("Remote origin", remoteOrigin)
+                : Warn("Remote origin", $"Konfiguriert: '{project.RemoteUrl}', tatsächlich: '{remoteOrigin}'. Bitte 'Remote setzen' ausführen."));
         }
         else
         {
@@ -104,44 +120,57 @@ public sealed class SyncPreflightService
             : Ok("Branch", branch));
 
         // ── 7. Uncommitted changes (warning, not error) ──────────────────────
-        if (status.ChangedFiles.Count > 0)
-        {
-            items.Add(Warn("Uncommitted Changes",
-                $"{status.ChangedFiles.Count} Datei(en) haben ungespeicherte Änderungen. Werden beim Push committet."));
-        }
-        else
-        {
-            items.Add(Ok("Uncommitted Changes", "Keine."));
-        }
+        items.Add(status.ChangedFiles.Count > 0
+            ? Warn("Uncommitted Changes", $"{status.ChangedFiles.Count} Datei(en) haben ungespeicherte Änderungen. Werden beim Push committet.")
+            : Ok("Uncommitted Changes", "Keine."));
 
         // ── 8. Merge conflict ────────────────────────────────────────────────
         var mergeHeadPath = Path.Combine(localPath, ".git", "MERGE_HEAD");
-        if (File.Exists(mergeHeadPath))
-        {
-            items.Add(Error("Merge-Konflikt",
-                "MERGE_HEAD vorhanden – ein Merge ist nicht abgeschlossen. Bitte Konflikt lösen."));
-        }
-        else
-        {
-            items.Add(Ok("Merge-Konflikt", "Kein aktiver Konflikt."));
-        }
+        items.Add(File.Exists(mergeHeadPath)
+            ? Error("Merge-Konflikt", "MERGE_HEAD vorhanden – ein Merge ist nicht abgeschlossen. Bitte Konflikt lösen.")
+            : Ok("Merge-Konflikt", "Kein aktiver Konflikt."));
 
         // ── 9. Workflow scope ────────────────────────────────────────────────
-        bool hasWorkflowFiles = HasWorkflowFiles(localPath);
-        if (hasWorkflowFiles)
+        if (needsWorkflowScope)
         {
-            // `gh auth status` output contains "workflow" in the scopes line when granted
-            bool workflowScope = auth.output.Contains("workflow", StringComparison.OrdinalIgnoreCase);
-            items.Add(workflowScope
-                ? Ok("Workflow-Scope",    "workflow-Scope vorhanden.")
-                : Error("Workflow-Scope", "workflow-Files gefunden, aber workflow-Scope fehlt. Bitte 'GitHub Rechte: repo + workflow' ausführen."));
+            bool workflowScopeMissing = auth.State == AuthenticationState.MissingRequiredScopes
+                                         && auth.MissingScopes.Contains("workflow", StringComparer.OrdinalIgnoreCase);
+            items.Add(workflowScopeMissing
+                ? Error("Workflow-Scope", "workflow-Files gefunden, aber workflow-Scope fehlt. Bitte 'GitHub Rechte: repo + workflow' ausführen.")
+                : Ok("Workflow-Scope", "workflow-Scope vorhanden."));
         }
-        // (no check item when no workflow files — not relevant)
 
-        return new SyncPreflightResult(items, branch, remoteOrigin);
+        return new SyncPreflightResult(items, branch, remoteOrigin, authentication: auth, remoteInfo: remoteInfo);
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────
+
+    private static PreflightItem BuildAuthItem(AuthenticationDiagnosis auth) => auth.State switch
+    {
+        AuthenticationState.EnvironmentTokenOverridesValidKeyring => new PreflightItem(
+            "Authentifizierung", PreflightSeverity.Error,
+            $"{auth.Summary} Automatische Reparatur verfügbar.",
+            CanAutoRepair: true, RepairActionId: "repair-environment-token"),
+
+        AuthenticationState.InvalidEnvironmentToken => new PreflightItem(
+            "Authentifizierung", PreflightSeverity.Error,
+            $"{auth.Summary} Bitte 'GitHub Login' ausführen."),
+
+        AuthenticationState.MissingRequiredScopes => new PreflightItem(
+            "Authentifizierung", PreflightSeverity.Error, auth.Summary),
+
+        AuthenticationState.GitHubCliUnavailable => new PreflightItem(
+            "Authentifizierung", PreflightSeverity.Error, auth.Summary),
+
+        AuthenticationState.AuthenticationCheckFailed => new PreflightItem(
+            "Authentifizierung", PreflightSeverity.Error, auth.Summary),
+
+        AuthenticationState.NotAuthenticated => new PreflightItem(
+            "Authentifizierung", PreflightSeverity.Error,
+            "Nicht bei GitHub eingeloggt. Bitte 'GitHub Login' ausführen."),
+
+        _ => new PreflightItem("Authentifizierung", PreflightSeverity.Ok, auth.Summary)
+    };
 
     private static string ResolveLocalPath(ManagedProject project)
     {
@@ -160,12 +189,6 @@ public sealed class SyncPreflightService
         return Directory.Exists(workflowDir) &&
                Directory.EnumerateFiles(workflowDir, "*.yml").Any();
     }
-
-    /// <summary>
-    /// Strip trailing .git and trailing slash for URL comparison.
-    /// </summary>
-    private static string NormalizeUrl(string url)
-        => url.TrimEnd('/').TrimEnd(['.', 'g', 'i', 't']).TrimEnd('/');
 
     private static async Task<(bool ok, string output)> Safe(
         Func<Task<Process.CommandResult>> action)

@@ -107,6 +107,40 @@ AI.GitHubManager
 
 AI GitHub Manager soll kein AAIA-only Tool sein. Es ist ein allgemeiner GitHub-Manager für alle aktuellen und zukünftigen Projekte.
 
+## Version 1.5.0 — Selbstdiagnose & Selbstreparatur der GitHub-Authentifizierung
+
+Referenzfall: Ein ungültiger `GITHUB_TOKEN`/`GH_TOKEN` in der Windows-Umgebung überschreibt eine
+gültige, im GitHub-CLI-Keyring gespeicherte Anmeldung. Die App meldete das bisher fälschlich als
+„Nicht bei GitHub eingeloggt“ und blockierte den Push, obwohl `gh auth status` mit bereinigter
+Umgebung eine gültige Anmeldung zeigt.
+
+Neu in 1.5.0:
+
+- Strukturierte Authentifizierungsdiagnose mit eigenem Zustandsmodell (`AuthenticationState`):
+  `Authenticated`, `AuthenticatedViaKeyring`, `AuthenticatedViaEnvironmentToken`,
+  `InvalidEnvironmentToken`, `EnvironmentTokenOverridesValidKeyring`, `NotAuthenticated`,
+  `MissingRequiredScopes`, `GitHubCliUnavailable`, `AuthenticationCheckFailed`. Der Exitcode von
+  `gh auth status` wird nicht mehr blind übernommen — die Ausgabe wird strukturiert ausgewertet.
+- Zweite Prüfung mit bereinigter Prozessumgebung (ohne `GH_TOKEN`/`GITHUB_TOKEN`), sobald die erste
+  Prüfung fehlschlägt und einer der beiden Werte gesetzt ist. So erkennt die App eine gültige
+  Keyring-Anmeldung, die durch einen ungültigen Token verdeckt wird.
+- Ein-Klick-Reparatur „Ungültigen Token entfernen und Anmeldung reparieren“: entfernt nur die
+  betroffene(n) Umgebungsvariable(n) aus Prozess- und Benutzerumgebung (`HKCU\Environment`),
+  lässt Systemvariablen (`HKLM`) unangetastet, sendet `WM_SETTINGCHANGE`, prüft danach sofort
+  erneut — ohne Neustart. Der GitHub-CLI-Keyring wird dabei nie verändert.
+- Keine Tokens mehr in Remote-URLs: `RemoteUrlNormalizer` erkennt eingebettete Zugangsdaten und
+  Platzhalter wie `DEIN_VORHANDENER_TOKEN`, vergleicht Remote-URLs semantisch (HTTPS/SSH,
+  mit/ohne `.git`, Groß-/Kleinschreibung) und bietet „Remote sicher bereinigen“ zur kanonischen
+  Form `https://github.com/<owner>/<repository>.git` an.
+- Verständlicherer GitHub-Login-Assistent: erkennt automatisch, ob bereits eine gültige Anmeldung
+  besteht, ob nur eine Berechtigung fehlt, oder ob eine echte Neuanmeldung nötig ist — ein Laie
+  muss weder Umgebungsvariablen noch Tokens noch den Windows-Schlüsselspeicher kennen.
+- Diagnosebericht-Export: redigierter Bericht (Version, OS, Git-/CLI-Version, Repository-Pfad,
+  credential-freie Remote-URL, Branch, Auth-Status, Scopes) zum Weitergeben an Entwickler — niemals
+  mit Tokens, Passwörtern oder rohen Umgebungsvariablen-Werten.
+- Push wird nur noch blockiert, wenn eine zwingende Voraussetzung tatsächlich fehlt, und die
+  Meldung nennt den genauen Grund plus ob eine automatische Reparatur verfügbar ist.
+
 ## Version 1.4.0 — Clean Export
 
 Version 1.4.0 ergänzt den plattformübergreifenden Dialog **„Projekt exportieren / Clean Export“**. Die Minor-Version wurde erhöht, weil es sich um eine neue, rückwärtskompatible Funktion handelt.

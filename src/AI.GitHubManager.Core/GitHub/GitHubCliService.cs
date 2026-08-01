@@ -67,6 +67,18 @@ public sealed class GitHubCliService
     public Task<CommandResult> SetupGitAsync() => _runner.RunAsync(GhExe, ["auth", "setup-git"]);
     public Task<CommandResult> RefreshWorkflowScopeAsync() => _runner.RunAsync(GhExe, ["auth", "refresh", "--scopes", "repo,workflow"]);
 
+    /// <summary>
+    /// Runs `gh auth status` again in a child process that has GH_TOKEN and GITHUB_TOKEN
+    /// removed from ITS environment only. The real user/system environment is never touched.
+    /// Used to detect a valid `gh` keyring login hiding underneath a bad environment token.
+    /// </summary>
+    public Task<CommandResult> AuthStatusWithCleanedEnvironmentAsync() =>
+        _runner.RunAsync(GhExe, ["auth", "status"], null, new Dictionary<string, string?>
+        {
+            ["GH_TOKEN"] = null,
+            ["GITHUB_TOKEN"] = null,
+        });
+
     public Task<CommandResult> OpenAuthLoginTerminalAsync()
     {
         // Use the resolved full path in the terminal command so the new cmd window

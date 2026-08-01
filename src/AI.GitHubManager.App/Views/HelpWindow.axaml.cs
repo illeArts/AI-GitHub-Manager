@@ -67,6 +67,18 @@ public partial class HelpWindow : Window
                        "\"non-fast-forward\" / diverged branches  →  Pull detects this automatically and rebases.");
         Ts5.Text = L.T("\"Keine Änderungen – Commit übersprungen\"  →  Keine Änderungen erkannt, Push wurde trotzdem ausgeführt.",
                        "\"Keine Änderungen – Commit übersprungen\"  →  No changes detected, push was still executed.");
+        Ts6.Text = L.T(
+            "Warum kann ein ungültiger Token eine gültige GitHub-Anmeldung blockieren?  →  Windows-Umgebungsvariablen " +
+            "(GH_TOKEN/GITHUB_TOKEN) haben Vorrang vor der sicheren Anmeldung im Windows-Schlüsselspeicher. Ist so ein " +
+            "Token vorhanden aber ungültig (z. B. abgelaufen), schlägt jede GitHub-Aktion fehl — auch wenn die eigentliche " +
+            "Anmeldung im Hintergrund noch gültig ist. Der Manager erkennt das automatisch und bietet \"Ungültigen Token " +
+            "entfernen und Anmeldung reparieren\" an; dabei wird nur die fehlerhafte Umgebungsvariable entfernt, die " +
+            "eigentliche Anmeldung bleibt unangetastet.",
+            "Why can an invalid token block a valid GitHub login?  →  Windows environment variables (GH_TOKEN/GITHUB_TOKEN) " +
+            "take priority over the secure login stored in the Windows credential store. If such a variable exists but is " +
+            "invalid (e.g. expired), every GitHub action fails — even though the actual login underneath is still valid. " +
+            "The manager detects this automatically and offers \"Remove invalid token and repair login\"; only the broken " +
+            "environment variable is removed, the actual login is left untouched.");
 
         // Security checklist
         SecHeader.Text = L.T("Sicherheit & Datenschutz", "Security & Privacy");

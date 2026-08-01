@@ -1,3 +1,5 @@
+using AI.GitHubManager.Core.GitHub;
+
 namespace AI.GitHubManager.Core.Diagnostics;
 
 public sealed record EnvironmentCheckResult(
@@ -6,4 +8,5 @@ public sealed record EnvironmentCheckResult(
     bool GitHubAuthenticated,
     string GitVersion,
     string GitHubCliVersion,
-    string GitHubAuthOutput);
+    string GitHubAuthOutput,
+    AuthenticationDiagnosis? Authentication = null);

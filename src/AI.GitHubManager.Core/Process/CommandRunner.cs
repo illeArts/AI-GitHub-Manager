@@ -18,7 +18,7 @@ public sealed class CommandRunner
         string arguments,
         string? workingDirectory = null,
         CancellationToken cancellationToken = default)
-        => await RunCoreAsync(fileName, arguments, null, workingDirectory, cancellationToken);
+        => await RunCoreAsync(fileName, arguments, null, workingDirectory, null, cancellationToken);
 
     public async Task<CommandResult> RunAsync(
         string fileName,
@@ -27,7 +27,25 @@ public sealed class CommandRunner
         CancellationToken cancellationToken = default)
     {
         var args = arguments.ToArray();
-        return await RunCoreAsync(fileName, string.Join(" ", args), args, workingDirectory, cancellationToken);
+        return await RunCoreAsync(fileName, string.Join(" ", args), args, workingDirectory, null, cancellationToken);
+    }
+
+    /// <summary>
+    /// Runs a command with specific environment variables overridden or removed
+    /// for that child process only. A <c>null</c> value in <paramref name="environmentOverrides"/>
+    /// removes the variable from the child process' environment; the real user/system
+    /// environment is never touched. Used to diagnose whether a bad GH_TOKEN/GITHUB_TOKEN
+    /// is hiding a valid `gh` keyring login.
+    /// </summary>
+    public async Task<CommandResult> RunAsync(
+        string fileName,
+        IEnumerable<string> arguments,
+        string? workingDirectory,
+        IReadOnlyDictionary<string, string?> environmentOverrides,
+        CancellationToken cancellationToken = default)
+    {
+        var args = arguments.ToArray();
+        return await RunCoreAsync(fileName, string.Join(" ", args), args, workingDirectory, environmentOverrides, cancellationToken);
     }
 
     private async Task<CommandResult> RunCoreAsync(
@@ -35,11 +53,21 @@ public sealed class CommandRunner
         string argumentText,
         IReadOnlyList<string>? argumentList,
         string? workingDirectory,
+        IReadOnlyDictionary<string, string?>? environmentOverrides,
         CancellationToken cancellationToken)
     {
         try
         {
             var info = BuildStartInfo(fileName, argumentText, argumentList, workingDirectory, redirect: true);
+
+            if (environmentOverrides is not null)
+            {
+                foreach (var (key, value) in environmentOverrides)
+                {
+                    if (value is null) info.Environment.Remove(key);
+                    else info.Environment[key] = value;
+                }
+            }
 
             using var process = new System.Diagnostics.Process { StartInfo = info };
             process.Start();
