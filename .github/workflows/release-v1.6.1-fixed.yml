@@ -1,0 +1,133 @@
+name: Release v1.6.1
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/release-v1.6.1-fixed.yml'
+      - 'RELEASE_NOTES_v1.6.1.md'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-v1.6.1
+  cancel-in-progress: false
+
+env:
+  VERSION: 1.6.1
+  PROJECT: src/AI.GitHubManager.App/AI.GitHubManager.App.csproj
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Verify version
+        shell: bash
+        run: |
+          grep -q '<Version>1.6.1</Version>' "$PROJECT"
+          grep -q '<AssemblyVersion>1.6.1.0</AssemblyVersion>' "$PROJECT"
+          grep -q '<FileVersion>1.6.1.0</FileVersion>' "$PROJECT"
+          grep -q '<InformationalVersion>1.6.1</InformationalVersion>' "$PROJECT"
+      - run: dotnet restore AI.GitHubManager.sln
+      - run: dotnet build AI.GitHubManager.sln -c Release --no-restore
+      - run: dotnet test AI.GitHubManager.sln -c Release --no-build --verbosity normal
+
+  package:
+    needs: verify
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: windows-x64
+            os: windows-latest
+            rid: win-x64
+            ext: zip
+          - name: linux-x64
+            os: ubuntu-latest
+            rid: linux-x64
+            ext: tar.gz
+          - name: macos-x64
+            os: macos-13
+            rid: osx-x64
+            ext: zip
+          - name: macos-arm64
+            os: macos-14
+            rid: osx-arm64
+            ext: zip
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Publish
+        shell: bash
+        run: |
+          dotnet publish "$PROJECT" -c Release -r "${{ matrix.rid }}" --self-contained true \
+            -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true \
+            -p:DebugType=None -p:DebugSymbols=false \
+            -o "artifacts/publish/${{ matrix.rid }}"
+          cp LICENSE "artifacts/publish/${{ matrix.rid }}/LICENSE.txt"
+          cp PRIVACY.md "artifacts/publish/${{ matrix.rid }}/PRIVACY.md"
+          cp SECURITY.md "artifacts/publish/${{ matrix.rid }}/SECURITY.md"
+          cp THIRD-PARTY-NOTICES.md "artifacts/publish/${{ matrix.rid }}/THIRD-PARTY-NOTICES.md"
+          cp RELEASE_NOTES_v1.6.1.md "artifacts/publish/${{ matrix.rid }}/RELEASE_NOTES.md"
+      - name: Archive Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $file = "artifacts/AI-GitHub-Manager-v${env:VERSION}-${{ matrix.name }}.zip"
+          Compress-Archive -Path "artifacts/publish/${{ matrix.rid }}/*" -DestinationPath $file -CompressionLevel Optimal
+          (Get-FileHash $file -Algorithm SHA256).Hash.ToLower() + "  " + (Split-Path $file -Leaf) | Set-Content "$file.sha256"
+      - name: Archive Unix
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          if [ "${{ matrix.ext }}" = "tar.gz" ]; then
+            file="artifacts/AI-GitHub-Manager-v${VERSION}-${{ matrix.name }}.tar.gz"
+            tar -C "artifacts/publish/${{ matrix.rid }}" -czf "$file" .
+          else
+            file="artifacts/AI-GitHub-Manager-v${VERSION}-${{ matrix.name }}.zip"
+            (cd "artifacts/publish/${{ matrix.rid }}" && zip -9 -r "../../../$file" .)
+          fi
+          if command -v sha256sum >/dev/null 2>&1; then
+            sha256sum "$file" > "$file.sha256"
+          else
+            shasum -a 256 "$file" > "$file.sha256"
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.name }}
+          path: artifacts/AI-GitHub-Manager-v1.6.1-${{ matrix.name }}.*
+          if-no-files-found: error
+
+  release:
+    needs: package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          merge-multiple: true
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          if gh release view "v${VERSION}" >/dev/null 2>&1; then
+            echo "Release already exists."
+            exit 0
+          fi
+          gh release create "v${VERSION}" release-assets/* \
+            --target "${GITHUB_SHA}" \
+            --title "AI GitHub Manager v${VERSION}" \
+            --notes-file RELEASE_NOTES_v1.6.1.md \
+            --latest
