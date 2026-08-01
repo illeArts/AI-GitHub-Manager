@@ -97,16 +97,26 @@
                     Command="{Binding RefreshWorkflowScopeCommand}" Margin="0,0,0,8" />
             <Button Content="{Binding Strings.RepairGit}"
                     Command="{Binding SetupGitCommand}"             Margin="0,0,0,8" />
-            <Button Content="⚠ Ungültigen Token entfernen und Anmeldung reparieren"
-                    Command="{Binding RepairEnvironmentTokenCommand}"
+            <Button Command="{Binding RepairEnvironmentTokenCommand}"
                     IsVisible="{Binding CanRepairEnvironmentToken}"
                     Background="#5a3a1a" Foreground="White"
-                    TextWrapping="Wrap" Margin="0,0,0,8" />
-            <Button Content="⚠ Remote sicher bereinigen"
-                    Command="{Binding SanitizeRemoteCommand}"
+                    HorizontalContentAlignment="Center"
+                    HorizontalAlignment="Stretch"
+                    Margin="0,0,0,8">
+              <TextBlock Text="⚠ Ungültigen Token entfernen und Anmeldung reparieren"
+                         TextWrapping="Wrap"
+                         TextAlignment="Center" />
+            </Button>
+            <Button Command="{Binding SanitizeRemoteCommand}"
                     IsVisible="{Binding CanSanitizeRemote}"
                     Background="#5a3a1a" Foreground="White"
-                    TextWrapping="Wrap" Margin="0,0,0,8" />
+                    HorizontalContentAlignment="Center"
+                    HorizontalAlignment="Stretch"
+                    Margin="0,0,0,8">
+              <TextBlock Text="⚠ Remote sicher bereinigen"
+                         TextWrapping="Wrap"
+                         TextAlignment="Center" />
+            </Button>
             <Button Content="Diagnosebericht exportieren"
                     Command="{Binding ExportDiagnosticsCommand}"     Margin="0,0,0,8" />
             <Button Content="{Binding Strings.SaveProject}"
