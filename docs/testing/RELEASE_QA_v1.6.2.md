@@ -380,7 +380,7 @@ ab. → **Screenshot der jeweils abweichenden Zeile erforderlich.**
 | 4.1 index.lock — verwaist | | |
 | 4.2 index.lock — aktiver Prozess | | |
 | 4.3 index.lock — MERGE_HEAD | | |
-| 5.1–5.9 Regression | | |
+| 5.1–5.11 Regression | | |
 
 **Bewertungsregel:** Für ein **GO** müssen alle Zeilen außer den ausdrücklich als
 BLOCKED markierten macOS-Update-Tests (2.2/2.3) mit GO bewertet sein. Ein einziges
