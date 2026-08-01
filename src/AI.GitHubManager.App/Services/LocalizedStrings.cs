@@ -26,6 +26,7 @@ public sealed class LocalizedStrings : INotifyPropertyChanged
 
     // ── Left panel ────────────────────────────────────────────────────────────
     public string ProjectsHeader    => L.T("Projekte",              "Projects");
+    public string ActionsHeader     => L.T("Aktionen",              "Actions");
     public string AddProject        => L.T("+ Hinzufügen",          "+ Add");
     public string RemoveProject     => L.T("− Entfernen",           "− Remove");
     public string ImportGitHub      => L.T("Von GitHub importieren","Import from GitHub");
