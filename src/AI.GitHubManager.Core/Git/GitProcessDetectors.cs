@@ -16,7 +16,7 @@ public sealed class ConservativeGitProcessDetector : IGitProcessDetector
     {
         try
         {
-            var processes = Process.GetProcessesByName("git");
+            var processes = System.Diagnostics.Process.GetProcessesByName("git");
             try
             {
                 return processes.Length > 0;
