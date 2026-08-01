@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - '.github/workflows/release-v1.6.1.yml'
+      - 'installer/AI-GitHub-Manager.iss'
       - 'RELEASE_NOTES_v1.6.1.md'
   workflow_dispatch:
 
@@ -40,6 +41,7 @@ jobs:
           grep -q '<AssemblyVersion>1.6.1.0</AssemblyVersion>' "$PROJECT"
           grep -q '<FileVersion>1.6.1.0</FileVersion>' "$PROJECT"
           grep -q '<InformationalVersion>1.6.1</InformationalVersion>' "$PROJECT"
+          grep -q '#define AppVersion "1.6.1"' installer/AI-GitHub-Manager.iss
 
       - name: Restore
         run: dotnet restore AI.GitHubManager.sln
@@ -149,9 +151,78 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
+  windows-installer:
+    name: Build Windows installer
+    needs: verify
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Publish Windows x64 payload
+        shell: pwsh
+        run: |
+          dotnet publish $env:PROJECT `
+            -c Release `
+            -r win-x64 `
+            --self-contained true `
+            -p:PublishSingleFile=true `
+            -p:IncludeNativeLibrariesForSelfExtract=true `
+            -p:DebugType=None `
+            -p:DebugSymbols=false `
+            -o artifacts/publish/win-x64
+          Copy-Item LICENSE artifacts/publish/win-x64/LICENSE.txt
+          Copy-Item PRIVACY.md artifacts/publish/win-x64/PRIVACY.md
+          Copy-Item SECURITY.md artifacts/publish/win-x64/SECURITY.md
+          Copy-Item THIRD-PARTY-NOTICES.md artifacts/publish/win-x64/THIRD-PARTY-NOTICES.md
+          Copy-Item RELEASE_NOTES_v1.6.1.md artifacts/publish/win-x64/RELEASE_NOTES.md
+
+      - name: Install Inno Setup 6
+        shell: pwsh
+        run: choco install innosetup --no-progress --yes
+
+      - name: Compile installer
+        shell: pwsh
+        run: |
+          $iscc = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'
+          if (-not (Test-Path $iscc)) {
+            $iscc = Join-Path $env:ProgramFiles 'Inno Setup 6\ISCC.exe'
+          }
+          if (-not (Test-Path $iscc)) {
+            throw 'Inno Setup compiler ISCC.exe was not found.'
+          }
+          New-Item -ItemType Directory -Force artifacts/installer | Out-Null
+          & $iscc installer/AI-GitHub-Manager.iss
+          if ($LASTEXITCODE -ne 0) {
+            throw "Inno Setup failed with exit code $LASTEXITCODE"
+          }
+          $installer = "artifacts/installer/AI_GitHub_Manager_Setup_${env:VERSION}_win-x64.exe"
+          if (-not (Test-Path $installer)) {
+            throw "Expected installer was not created: $installer"
+          }
+          $hash = (Get-FileHash $installer -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  AI_GitHub_Manager_Setup_${env:VERSION}_win-x64.exe" | Set-Content "$installer.sha256" -Encoding ascii
+
+      - name: Upload Windows installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-installer
+          path: |
+            artifacts/installer/AI_GitHub_Manager_Setup_${{ env.VERSION }}_win-x64.exe
+            artifacts/installer/AI_GitHub_Manager_Setup_${{ env.VERSION }}_win-x64.exe.sha256
+          if-no-files-found: error
+          retention-days: 30
+
   release:
     name: Publish GitHub release
-    needs: package
+    needs:
+      - package
+      - windows-installer
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -163,20 +234,23 @@ jobs:
           path: release-assets
           merge-multiple: true
 
-      - name: Create tag and release when absent
+      - name: Create or update GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           if gh release view "v${VERSION}" >/dev/null 2>&1; then
-            echo "Release v${VERSION} already exists; no duplicate will be created."
-            exit 0
+            gh release upload "v${VERSION}" release-assets/* --clobber
+            gh release edit "v${VERSION}" \
+              --title "AI GitHub Manager v${VERSION}" \
+              --notes-file RELEASE_NOTES_v1.6.1.md \
+              --latest
+          else
+            gh release create "v${VERSION}" \
+              release-assets/* \
+              --target "${GITHUB_SHA}" \
+              --title "AI GitHub Manager v${VERSION}" \
+              --notes-file RELEASE_NOTES_v1.6.1.md \
+              --latest \
+              --verify-tag=false
           fi
-
-          gh release create "v${VERSION}" \
-            release-assets/* \
-            --target "${GITHUB_SHA}" \
-            --title "AI GitHub Manager v${VERSION}" \
-            --notes-file RELEASE_NOTES_v1.6.1.md \
-            --latest \
-            --verify-tag=false
