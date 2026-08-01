@@ -1,0 +1,80 @@
+AI GITHUB MANAGER COMMUNITY-USE LICENSE
+Version 1.0 — 1 August 2026
+
+Copyright © 2026 André Iljaschow / illeArts. All rights reserved.
+
+1. Ownership
+
+AI GitHub Manager, including its original source code, application code, documentation, branding, artwork and project-specific assets (the "Software"), is protected by copyright and other applicable laws. All rights not expressly granted by this license remain with André Iljaschow / illeArts (the "Licensor").
+
+2. Permission granted
+
+Subject to this license, the Licensor grants each user a personal, non-exclusive, non-transferable, revocable, royalty-free right to:
+
+- download and install the Software;
+- run the Software for private, educational or internal business purposes;
+- inspect the publicly available source code;
+- make private modifications for the user's own use; and
+- create a private backup copy.
+
+3. Restrictions
+
+Without prior written permission from the Licensor, users may not:
+
+- sell, rent, lease, sublicense or commercially redistribute the Software;
+- publish, mirror, repackage or distribute the Software, modified versions, installers or substantial portions of its source code outside the normal GitHub fork functionality;
+- offer the Software or a modified version as a paid product, hosted service or bundled commercial service;
+- remove or alter copyright, license, attribution or trademark notices;
+- use the names "illeArts", "AI GitHub Manager", the project logo or other branding in a way that suggests endorsement, sponsorship or official status;
+- use the Software in violation of applicable law, third-party rights, GitHub terms, repository permissions or security requirements; or
+- bypass technical safeguards or use the Software to obtain unauthorized access to repositories, accounts, systems or data.
+
+4. GitHub forks and contributions
+
+GitHub forks made through GitHub's normal platform functionality are permitted for review, issue reproduction and proposed contributions, provided this license and all notices remain intact. This permission does not grant a general right to publish binaries, installers, competing distributions or commercial derivatives.
+
+Unless a separate written agreement applies, contributions submitted to this repository may be used, modified and redistributed by the Licensor as part of the Software under this license and under any future license chosen by the Licensor. Contributors retain copyright in their original contributions.
+
+5. Third-party components
+
+Third-party components included in or used by the Software remain subject to their own licenses and notices. This license does not replace or restrict rights granted by those third-party licenses. See THIRD-PARTY-NOTICES.md.
+
+6. No warranty
+
+THE SOFTWARE IS PROVIDED "AS IS" AND "AS AVAILABLE", WITHOUT WARRANTIES OR GUARANTEES OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, ACCURACY, AVAILABILITY, SECURITY, NON-INFRINGEMENT OR FREEDOM FROM DATA LOSS.
+
+Git and GitHub operations can modify files, branches, commits, remotes and repository state. Users are responsible for reviewing commands, maintaining current backups and verifying repository state before performing pull, commit, push, export, repair or synchronization operations.
+
+7. Limitation of liability
+
+TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, THE LICENSOR SHALL NOT BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY OR CONSEQUENTIAL DAMAGE, INCLUDING LOSS OF DATA, REPOSITORY HISTORY, ACCESS, PROFITS, BUSINESS INTERRUPTION OR SECURITY INCIDENTS, ARISING FROM USE OF OR INABILITY TO USE THE SOFTWARE.
+
+Nothing in this license excludes or limits liability where exclusion or limitation is prohibited by mandatory law, including liability for intent, gross negligence, injury to life, body or health, or mandatory product liability.
+
+8. User responsibility
+
+Users are solely responsible for:
+
+- their GitHub account, credentials, access tokens and configured permissions;
+- the legality and licensing of files and repositories they process;
+- verifying remotes, branches, diffs and pending changes;
+- protecting confidential information and secrets; and
+- maintaining recoverable backups before potentially destructive operations.
+
+9. Independent project and trademarks
+
+AI GitHub Manager is an independent project. It is not affiliated with, sponsored by or endorsed by GitHub, Inc. or Microsoft Corporation. GitHub, the GitHub logo, Microsoft, Windows and other names or marks are property of their respective owners.
+
+10. Termination
+
+The rights granted by this license terminate automatically if a user materially violates its terms. Upon termination, the user must stop using and distributing the Software and remove unauthorized copies. Provisions concerning ownership, restrictions, warranty, liability and applicable law survive termination.
+
+11. Exceptions and commercial licensing
+
+Permissions beyond this license, including redistribution, commercial use, OEM bundling, hosted services or publication of modified distributions, require a separate written agreement with the Licensor.
+
+12. Applicable law
+
+To the extent legally permissible, this license is governed by the laws of the Federal Republic of Germany. Mandatory consumer-protection and conflict-of-law rules remain unaffected.
+
+This license is not an Open Source Initiative approved open-source license. The source code is publicly viewable, but the Software remains proprietary except for the limited rights expressly granted above.

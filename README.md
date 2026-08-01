@@ -1,16 +1,24 @@
 # AI GitHub Manager
 
-AI GitHub Manager ist eine plattformübergreifende Avalonia/.NET-App für Windows, macOS und Linux. Ziel ist ein einfaches, sicheres Werkzeug für GitHub-Projekte: anmelden, Repository auswählen, lokalen Ordner verknüpfen und Pull/Commit/Push per Button ausführen.
+[![Version](https://img.shields.io/badge/version-1.4.0-blue)](#aktueller-funktionsstand)
+[![Platforms](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey)](#voraussetzungen)
+[![License](https://img.shields.io/badge/license-proprietary%20community--use-orange)](LICENSE)
+
+AI GitHub Manager ist eine kompakte, plattformübergreifende Avalonia/.NET-Desktopanwendung für Windows, macOS und Linux. Sie unterstützt Nutzer dabei, GitHub-Projekte auszuwählen, lokale Ordner korrekt zuzuordnen und typische Git-Arbeitsschritte wie Statusprüfung, Pull, Commit und Push verständlich auszuführen.
+
+Das Projekt richtet sich insbesondere an Nutzer, die Git und GitHub zuverlässig verwenden möchten, ohne jede Credential-, Remote-, Branch- oder Workflow-Konfiguration manuell beherrschen zu müssen.
+
+> **Wichtig:** Git-Operationen können Dateien, Branches, Commits und Repository-Zustände verändern. Prüfe vor jeder Aktion Remote, Branch, Änderungen und Backup. Die Nutzung erfolgt eigenverantwortlich und nach Maßgabe der [Lizenz](LICENSE).
 
 ## Warum dieses Projekt existiert
 
-Viele GitHub-Probleme entstehen nicht durch Git selbst, sondern durch wechselnde Geräte, falsche Credential Stores, falsche Commit-E-Mails, neue Tokens, fehlende Workflow-Rechte und unterschiedliche lokale Projektpfade. Dieses Tool soll diese Fehler bündeln, prüfen und verständlich reparieren.
+Viele GitHub-Probleme entstehen nicht durch Git selbst, sondern durch wechselnde Geräte, falsche Credential Stores, falsche Commit-E-Mails, neue Tokens, fehlende Workflow-Rechte und unterschiedliche lokale Projektpfade. AI GitHub Manager bündelt diese Prüfungen, erklärt bekannte Fehler verständlich und bietet kontrollierte Reparaturwege an.
 
-## Grundregel
+## Sicherheitsprinzip
 
-Die App speichert keine GitHub-Tokens selbst.
+Die Anwendung speichert keine GitHub-Tokens selbst.
 
-Stattdessen nutzt sie:
+Stattdessen verwendet sie die offizielle GitHub CLI und den geschützten Credential Store des Betriebssystems:
 
 ```bash
 gh auth login --scopes repo,workflow
@@ -18,125 +26,115 @@ gh auth setup-git
 gh auth refresh --scopes repo,workflow
 ```
 
-Damit liegen Credentials im sicheren Speicher des Betriebssystems bzw. in der GitHub-CLI-Verwaltung.
+Weitere Grundregeln:
+
+- kein automatischer `git push --force`;
+- keine automatische Löschung von Dateien vor einem Pull;
+- Abbruch und verständliche Meldung bei erkannten Konflikten;
+- keine eigene Telemetrie oder automatische Übertragung von Projektdateien an illeArts;
+- sensible Exporthinweise als Hilfestellung, nicht als Sicherheitsgarantie.
+
+Siehe auch [SECURITY.md](SECURITY.md) und [PRIVACY.md](PRIVACY.md).
+
+## Funktionen
+
+- Avalonia-Desktopoberfläche für Windows, macOS und Linux
+- Projektliste und plattformspezifische lokale Projektpfade
+- lokaler JSON-Projektstore
+- Git-Status, Pull sowie Commit und Push
+- GitHub-CLI-Statusprüfung
+- GitHub-Login über die offizielle CLI
+- Reparatur der Git-Credential-Konfiguration
+- Prüfung und Ergänzung des `repo`- und `workflow`-Scopes
+- Sync-Preflight mit neun Vorabprüfungen
+- verständliche Analyse häufiger Pull-/Push-Fehler
+- plattformübergreifender Dialog „Projekt exportieren / Clean Export“
+- vier unveränderliche Exportprofile mit Vorschau
+- Warnungen vor bekannten Secret-Dateien und großen Dateien
+- ZIP-Erstellung und Inhaltsvalidierung ohne Shell-Aufrufe
+- Git-Worktree-Erkennung mit Synchronisierungs- und Backup-Hinweis
+- automatische Prüfung der GitHub Releases API auf neue Versionen
+
+## Sync-Preflight
+
+Die Funktion **„Umgebung prüfen“** kontrolliert bei ausgewähltem Projekt:
+
+1. Git installiert?
+2. GitHub CLI installiert?
+3. GitHub-Anmeldung vorhanden?
+4. Lokaler Ordner ist ein Git-Repository?
+5. Remote `origin` stimmt mit dem Projekt überein?
+6. Aktiver Branch erkannt?
+7. Uncommitted Changes vorhanden?
+8. Merge-Konflikt aktiv?
+9. Workflow-Dateien vorhanden und erforderlicher Workflow-Scope verfügbar?
+
+Das Ergebnis wird strukturiert mit ✅, ⚠️ und ❌ angezeigt.
+
+## Fehleranalyse
+
+Bei fehlgeschlagenem Pull oder Push erkennt die Anwendung unter anderem folgende Muster:
+
+| Erkannter Fehler | Angezeigter Lösungsweg |
+|---|---|
+| Authentication failed | GitHub-Login und Git-Credentials prüfen |
+| Repository not found | Repository und Zugriffsrechte prüfen |
+| Workflow-Scope fehlt | Rechte `repo` und `workflow` ergänzen |
+| Non-fast-forward | Erst Pull, Konflikte prüfen, danach Push |
+| Unrelated histories | Historien bewusst zusammenführen |
+| Merge conflict | Konflikte manuell auflösen und committen |
+| `index.lock` | abgestürzten Git-Prozess beziehungsweise Lock prüfen |
+| Netzwerkfehler | Verbindung und Remote-Erreichbarkeit prüfen |
+
+## Clean Export
+
+Version 1.4.0 ergänzt den Dialog **„Projekt exportieren / Clean Export“**.
+
+Ein „vollständiges Dateiarchiv“ ist kein vollständiges Git-Wiederherstellungsbackup. Git-Worktrees werden nicht über ZIP-Dateien zwischen Rechnern synchronisiert. Für den Rechnerwechsel bleiben Fetch, Pull, Commit und Push der verbindliche Weg.
+
+Der Export verändert den Quellordner nicht. Potenziell sensible Dateien werden anhand bekannter Namen, Pfade und Dateiendungen erkannt. Diese Erkennung kann unvollständig sein; jeder Export muss vor einer Weitergabe manuell kontrolliert werden.
+
+## Voraussetzungen
+
+- .NET 8 SDK zum Entwickeln oder Bauen
+- Git
+- GitHub CLI `gh`
+- Visual Studio 2022, JetBrains Rider oder VS Code mit C# Dev Kit
 
 ## Projektstruktur
 
 ```text
 AI.GitHubManager.sln
 ├── src/AI.GitHubManager.App      # Avalonia Desktop UI
-├── src/AI.GitHubManager.Core     # Git, GitHub CLI, Diagnose, Sync-Logik
-├── src/AI.GitHubManager.Data     # Lokaler ProjectStore, aktuell JSON
+├── src/AI.GitHubManager.Core     # Git, GitHub CLI, Diagnose und Sync-Logik
+├── src/AI.GitHubManager.Data     # lokaler ProjectStore, aktuell JSON
 └── tests/AI.GitHubManager.Tests  # Unit- und Integrationstests
 ```
 
-## Voraussetzungen
+## Start aus dem Quellcode
 
-- .NET 8 SDK
-- Git
-- GitHub CLI `gh`
-- Visual Studio 2022 oder JetBrains Rider oder VS Code mit C# Dev Kit
+1. Repository klonen.
+2. `AI.GitHubManager.sln` öffnen.
+3. NuGet-Pakete wiederherstellen.
+4. `AI.GitHubManager.App` als Startprojekt festlegen.
+5. Anwendung ausführen.
 
-## Start in Visual Studio
+## GitHub-Anmeldung
 
-1. `AI.GitHubManager.sln` öffnen.
-2. NuGet-Pakete wiederherstellen lassen.
-3. Startprojekt: `AI.GitHubManager.App`.
-4. Ausführen.
+### Über die Anwendung
 
-## Erster Login
+Empfohlene Reihenfolge unter Windows:
 
-Im Terminal einmal ausführen:
+1. Anwendung starten.
+2. **GitHub CLI installieren** auswählen.
+3. Nach der Installation Anwendung beziehungsweise Entwicklungsumgebung neu starten.
+4. **GitHub Login** auswählen.
+5. Browser-Code bestätigen.
+6. **Umgebung prüfen** ausführen.
+7. Bei Workflow-Fehlern **GitHub Rechte: repo + workflow** auswählen.
+8. Anschließend bei Bedarf **Git Credentials reparieren** ausführen.
 
-```bash
-gh auth login --scopes repo,workflow
-gh auth setup-git
-```
-
-Wenn Push auf `.github/workflows/*.yml` blockiert wird:
-
-```bash
-gh auth refresh --scopes repo,workflow
-```
-
-## Aktueller Funktionsstand
-
-MVP-Gerüst ist vorbereitet:
-
-- Avalonia-Fenster
-- Projektliste
-- lokaler Pfad je Plattform speicherbar
-- JSON-Projektstore
-- Git-Status
-- Pull
-- Commit + Push
-- GitHub-CLI-Statusprüfung
-- Workflow-Scope-Reparatur
-- Git-Credential-Setup über `gh auth setup-git`
-- plattformübergreifender Dialog „Projekt exportieren / Clean Export“
-- unveränderlicher Exportplan mit vier Profilen, Vorschau, Secret-Warnung und großen Dateien
-- sichere ZIP-Erstellung und Inhaltsvalidierung ohne Shell-Aufrufe
-- Git-Worktree-Erkennung mit ausdrücklichem Synchronisierungs- und Backup-Hinweis
-
-## Nächste Aufgaben für mitwirkende KIs
-
-Projektimport, Ordnerauswahl, Sync-Preflight, verständliche Git-Fehleranalyse und eine automatisierte Unit-/Integrationstestsuite sind umgesetzt. Sinnvolle nächste Schritte sind:
-
-- Clean Export auf den unterstützten macOS- und Linux-Zielsystemen manuell verifizieren
-- Bedienoberfläche und Lokalisierung des Exportdialogs weiter vereinheitlichen
-- Release-Artefakte für Windows und macOS automatisiert erstellen und prüfen
-- zusätzliche Regressionstests ergänzen, wenn neue Randfälle bekannt werden
-
-## Sicherheitsregeln
-
-- Niemals Tokens in JSON, Logs oder Settings speichern.
-- Niemals automatisch `git push --force` ausführen.
-- Niemals Dateien vor einem Pull löschen.
-- Bei Konflikten abbrechen und verständlich melden.
-- Vor riskanten Aktionen später Backup/Checkpoint einbauen.
-
-## Namensraum
-
-Alle Projekte verwenden:
-
-```text
-AI.GitHubManager
-```
-
-## Produktziel
-
-AI GitHub Manager soll kein AAIA-only Tool sein. Es ist ein allgemeiner GitHub-Manager für alle aktuellen und zukünftigen Projekte.
-
-## Version 1.4.0 — Clean Export
-
-Version 1.4.0 ergänzt den plattformübergreifenden Dialog **„Projekt exportieren / Clean Export“**. Die Minor-Version wurde erhöht, weil es sich um eine neue, rückwärtskompatible Funktion handelt.
-
-„Vollständiges Dateiarchiv“ bezeichnet kein Git-Wiederherstellungsbackup. Git-Worktrees werden nicht über ZIP-Dateien zwischen Rechnern synchronisiert; für Rechnerwechsel bleiben Fetch, Pull, Commit und Push der verbindliche Weg. Der Export verändert den Quellordner niemals. Potenziell sensible Dateien werden in Version 1 ausschließlich anhand bekannter Namen, Pfade und Dateiendungen erkannt.
-
-## Update 2026-06-05: GitHub Login Button
-
-Die App besitzt jetzt eigene Buttons für:
-
-- `GitHub CLI installieren`
-- `GitHub Login`
-- `Umgebung prüfen`
-- `GitHub Rechte: repo + workflow`
-- `Git Credentials reparieren`
-
-Wichtig: Die App speichert absichtlich keine GitHub-Tokens. Der Login läuft über die offizielle GitHub CLI (`gh`) und den sicheren Credential Store des Betriebssystems.
-
-### Empfohlene Reihenfolge auf Windows
-
-1. App starten.
-2. `GitHub CLI installieren` drücken.
-3. Nach der Installation Visual Studio/App neu starten.
-4. `GitHub Login` drücken.
-5. Im geöffneten Terminal den Browser-Code bestätigen.
-6. `Umgebung prüfen` drücken.
-7. Bei Workflow-Fehlern `GitHub Rechte: repo + workflow` drücken.
-8. Danach `Git Credentials reparieren` drücken.
-
-### Manuell im Terminal
+### Manuell
 
 Windows:
 
@@ -157,53 +155,69 @@ gh auth setup-git
 Linux:
 
 ```bash
-# GitHub CLI je nach Distribution installieren
+# GitHub CLI entsprechend der verwendeten Distribution installieren
 gh auth login --web --scopes repo,workflow
 gh auth setup-git
 ```
 
-### Warum kein Token-Feld?
+## Aktueller Funktionsstand
 
-Token-Felder erzeugen genau das Chaos, das dieses Programm verhindern soll: falscher Token, falsche E-Mail, falsche Rechte, falscher Credential Store. Darum nutzt dieses Projekt `gh` als offizielle Login-Schicht.
+Aktuelle Projektversion: **1.4.0**
 
-## Update 2026-06-12: v1.3.0 — Sync-Preflight, Fehleranalyse, Auto-Update-Check
+Noch sinnvoll zu verifizieren beziehungsweise auszubauen:
 
-### Neu in 1.3.0
+- Clean Export auf unterstützten macOS- und Linux-Zielsystemen manuell testen;
+- Oberfläche und Lokalisierung des Exportdialogs vereinheitlichen;
+- reproduzierbare Release-Artefakte für Windows, macOS und Linux automatisieren;
+- Signierung, Prüfsummen und Release-Nachweise ergänzen;
+- Regressionstests bei neuen Randfällen erweitern.
 
-**Sync-Preflight (`Umgebung prüfen`)**
-Der Button "Umgebung prüfen" führt jetzt — wenn ein Projekt mit lokalem Pfad ausgewählt ist — alle 9 Vor-Push-Checks in einem Schritt aus:
+## Lizenz und erlaubte Nutzung
 
-- Git installiert?
-- GitHub CLI installiert?
-- GitHub eingeloggt?
-- Lokaler Ordner ist ein Git-Repository?
-- Remote `origin` stimmt mit dem Projekt überein?
-- Aktiver Branch erkannt?
-- Uncommitted Changes vorhanden? (Warnung, kein Abbruch)
-- Merge-Konflikt aktiv (MERGE_HEAD)?
-- Workflow-Dateien vorhanden → workflow-Scope geprüft?
+Copyright © 2026 André Iljaschow / illeArts. Alle Rechte vorbehalten.
 
-Ergebnis erscheint mit ✅/⚠️/❌ strukturiert im Ausgabe-Fenster.
+Die Software darf nach der [AI GitHub Manager Community-Use License](LICENSE) kostenlos heruntergeladen, installiert und für private, schulische sowie interne betriebliche Zwecke verwendet werden.
 
-**Fehleranalyse bei Pull/Push**
-Schlägt ein Pull oder Push fehl, erkennt die App jetzt automatisch bekannte Fehlermuster und zeigt Ursache + Lösung im Klartext:
+Ohne vorherige schriftliche Genehmigung ist insbesondere nicht erlaubt:
 
-| Erkannter Fehler | Lösungshinweis |
-|---|---|
-| Authentication failed | GitHub Login + Git Credentials reparieren |
-| repository not found | Repo-Existenz und Zugriffsrechte prüfen |
-| workflow-Scope fehlt | GitHub Rechte: repo + workflow |
-| non-fast-forward | Erst Pull, dann Push |
-| unrelated histories | --allow-unrelated-histories |
-| merge conflict | Konflikte auflösen, dann committen |
-| index.lock | Abgestürzten Git-Prozess bereinigen |
-| Netzwerkfehler | Internetverbindung prüfen |
+- Verkauf oder entgeltliche Weitergabe;
+- Veröffentlichung eigener Installer oder Binärdistributionen;
+- öffentliche Neuveröffentlichung veränderter Versionen außerhalb der normalen GitHub-Fork-Funktion;
+- Angebot als bezahlter Dienst oder Bestandteil eines kommerziellen Produkts;
+- Entfernung von Copyright-, Lizenz- oder Herkunftshinweisen; und
+- Verwendung von Name oder Logo mit dem Eindruck einer offiziellen oder genehmigten Version.
 
-**Update-Check**
-Die App prüft beim Start automatisch die GitHub Releases API auf neue Versionen. Wenn eine neue Version verfügbar ist, erscheint ein grünes Banner oben in der App mit einem Direktdownload-Button. Über den Button "Auf Updates prüfen" in der linken Leiste kann manuell geprüft werden.
+Das Projekt ist **source available**, aber nicht unter einer OSI-anerkannten Open-Source-Lizenz veröffentlicht. Das Urheberrecht und alle nicht ausdrücklich eingeräumten Rechte verbleiben bei André Iljaschow / illeArts.
 
-Der Update-Check läuft im Hintergrund, blockiert die App nicht und schlägt still fehl bei fehlendem Netz.
+## Haftung und Eigenverantwortung
 
-### Installer / Update
+Die Software wird ohne Garantie und im gesetzlich zulässigen Umfang ohne Haftung für Datenverlust, beschädigte Repository-Historien, Fehlkonfigurationen, Zugriffsverluste, Ausfälle oder sonstige Schäden bereitgestellt.
 
-Der Windows-Installer erkennt eine vorhandene 1.x-Installation automatisch und aktualisiert sie in-place — kein manuelles Deinstallieren nötig. Einfach `AI_GitHub_Manager_Setup_1.3.0_win-x64.exe` ausführen.
+Nutzer sind selbst verantwortlich für:
+
+- aktuelle und überprüfbare Backups;
+- Kontrolle von Remote, Branch, Diff und Repository-Status;
+- Schutz von Tokens, Schlüsseln und vertraulichen Dateien;
+- ausreichende GitHub- und Dateisystemberechtigungen;
+- Rechtmäßigkeit und Lizenzierung der verarbeiteten Inhalte; und
+- die Folgen ausgelöster Git-, Export- und Reparaturaktionen.
+
+Gesetzlich zwingende Haftung bleibt unberührt. Maßgeblich ist der vollständige Text in [LICENSE](LICENSE).
+
+## Datenschutz
+
+Die Anwendung arbeitet lokal und betreibt nach aktuellem Stand keinen eigenen Telemetrie-, Analyse- oder Benutzerdienst. Netzwerkzugriffe erfolgen insbesondere zu GitHub, der GitHub API und konfigurierten Git-Remotes. Details stehen in [PRIVACY.md](PRIVACY.md).
+
+## Sicherheitsmeldungen
+
+Sicherheitslücken dürfen nicht zusammen mit Tokens, privaten Schlüsseln, Zugangsdaten oder vertraulichem Quellcode in öffentlichen Issues veröffentlicht werden. Der vorgesehene Meldeweg und die unterstützten Versionen stehen in [SECURITY.md](SECURITY.md).
+
+## Drittanbieter
+
+Avalonia, .NET, Git, GitHub CLI, Schriftarten und weitere Drittanbieter-Komponenten unterliegen eigenen Lizenzen und Bedingungen. Eine Übersicht befindet sich in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
+
+## Unabhängigkeit und Marken
+
+AI GitHub Manager ist ein unabhängiges Projekt und weder mit GitHub, Inc. noch mit Microsoft Corporation verbunden, von diesen gesponsert oder offiziell unterstützt.
+
+GitHub, das GitHub-Logo, Microsoft, Windows, .NET, Apple, macOS, Linux und weitere Produktnamen oder Marken gehören ihren jeweiligen Rechteinhabern. Ihre Nennung dient ausschließlich der Beschreibung von Kompatibilität und Funktion.
