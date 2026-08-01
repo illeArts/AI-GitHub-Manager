@@ -1,0 +1,73 @@
+name: Fehlerbericht
+description: Reproduzierbaren Fehler melden
+title: "[Bug] "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Danke für den Bericht. **Keine Tokens, Passwörter, privaten Schlüssel, privaten Repository-Inhalte oder personenbezogenen Daten einfügen.** Sicherheitslücken bitte nicht öffentlich melden; siehe SECURITY.md.
+  - type: input
+    id: version
+    attributes:
+      label: Version von AI GitHub Manager
+      placeholder: "z. B. 1.4.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Betriebssystem
+      options:
+        - Windows
+        - macOS
+        - Linux
+        - Anderes
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Git-, GitHub-CLI- und .NET-Versionen
+      placeholder: "git --version; gh --version; dotnet --info"
+  - type: textarea
+    id: steps
+    attributes:
+      label: Schritte zur Reproduktion
+      description: Beschreibe den kürzesten nachvollziehbaren Ablauf.
+      placeholder: |
+        1. ...
+        2. ...
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Erwartetes Verhalten
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Tatsächliches Verhalten
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Bereinigte Fehlermeldungen oder Logs
+      description: Entferne Zugangsdaten, lokale Benutzernamen, E-Mail-Adressen, private Pfade und vertrauliche Inhalte.
+      render: text
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Bestätigung
+      options:
+        - label: Ich habe nach bestehenden Issues gesucht.
+          required: true
+        - label: Ich habe alle Geheimnisse und personenbezogenen Daten entfernt.
+          required: true
+        - label: Dies ist keine vertraulich zu meldende Sicherheitslücke.
+          required: true
