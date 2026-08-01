@@ -23,6 +23,20 @@ public sealed class InstallerBuildService
 
     public bool IsSupportedOnCurrentPlatform => OperatingSystem.IsWindows() || OperatingSystem.IsMacOS();
 
+    /// <summary>
+    /// Official Inno Setup download page. Only ever opened in the user's
+    /// default browser — never downloaded/executed silently by this app.
+    /// </summary>
+    public const string InnoSetupDownloadUrl = "https://jrsoftware.org/isdl.php";
+
+    /// <summary>
+    /// True when Inno Setup 6 (ISCC.exe) is installed and was found at one
+    /// of the well-known install locations. Windows-only concern: on other
+    /// platforms this always returns true so no "please install" prompt is
+    /// shown where it wouldn't apply.
+    /// </summary>
+    public bool IsInnoSetupInstalled => !OperatingSystem.IsWindows() || FindInnoSetupCompiler() is not null;
+
     public async Task<CommandResult> CreateInstallerAsync(string repositoryPath, CancellationToken cancellationToken = default)
     {
         if (OperatingSystem.IsWindows())

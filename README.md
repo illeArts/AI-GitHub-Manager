@@ -88,6 +88,8 @@ MVP-Gerüst ist vorbereitet:
 - vollständig zweisprachiges UI (Deutsch/Englisch) inkl. Hilfe-Fenster, Über-Fenster und Export-Dialog
 - Self-Service „Build, Test & Push" für .NET-Projekte (bricht vor dem Push ab, wenn Build oder Test fehlschlagen)
 - „Installer erstellen" für Windows (Publish + Inno Setup) und macOS (build-installer-mac.sh)
+- vorsorglicher „Inno Setup installieren“-Button: erscheint unter Windows nur, solange Inno Setup 6
+  nicht gefunden wurde, und verschwindet automatisch, sobald es installiert ist
 
 Das vollständige Benutzerhandbuch (Schnellstart, alle Befehle, Fehlerbehebung, Sicherheit) ist im
 Menü **Hilfe → Hilfe / Befehle** der App verfügbar und existiert auf Deutsch und Englisch.
@@ -137,6 +139,23 @@ Neu:
 - **UI-Layout**: Die Aktions-Buttons standen bisher direkt unter der Projektliste und nahmen ihr
   fast den ganzen Platz weg. Neues drittes Panel rechts neben dem Ausgabefeld nimmt jetzt alle
   Aktions-Buttons auf; die Projektliste links hat wieder ausreichend Raum.
+
+## Version 1.6.1 — Vorsorglicher Inno-Setup-Hinweis
+
+„Installer erstellen“ auf Windows benötigt Inno Setup 6 (kostenlos, https://jrsoftware.org/isinfo.php).
+Bisher stand das nur im Fehlertext, falls die Erstellung deshalb fehlschlug. Neu:
+
+- Das Hilfe-Fenster (Menü **Hilfe → Hilfe / Befehle**) erklärt jetzt explizit, dass Windows dafür
+  Inno Setup 6 braucht und wo man es bekommt.
+- Vorsorglicher Button **„Inno Setup installieren“**: Die App prüft beim ersten Start (und danach bei
+  jeder Umgebungsprüfung sowie nach jedem Installer-Lauf) automatisch, ob Inno Setup 6 an einem der
+  bekannten Installationsorte gefunden wird.
+  - Gefunden → Button ist nicht sichtbar.
+  - Nicht gefunden → Button erscheint neben „Installer erstellen“ und öffnet beim Klick die offizielle
+    Download-Seite im Standardbrowser. Es wird nichts automatisch heruntergeladen oder installiert.
+  - Nach einer manuellen Installation verschwindet der Button von selbst (sobald erneut geprüft wird),
+    ganz ohne App-Neustart.
+- Nur unter Windows relevant; auf macOS/Linux bleibt der Button dauerhaft ausgeblendet.
 
 ## Version 1.5.1 — Build-Fix für die Avalonia-Oberfläche
 

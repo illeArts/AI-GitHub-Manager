@@ -87,9 +87,21 @@ public partial class HelpWindow : Window
         CmdCreateInstallerLabel.Text = L.T("Installer erstellen", "Create Installer");
         CmdCreateInstaller.Text = L.T(
             "Erstellt einen Windows-Installer (Publish + Inno Setup) oder ruft build-installer-mac.sh auf macOS auf. " +
-            "Kann einige Minuten dauern.",
+            "Kann einige Minuten dauern. Windows benötigt dafür Inno Setup 6 (kostenlos, https://jrsoftware.org/isinfo.php) " +
+            "— fehlt es, erscheint automatisch der Button „Inno Setup installieren“.",
             "Creates a Windows installer (publish + Inno Setup) or runs build-installer-mac.sh on macOS. " +
-            "Can take a few minutes.");
+            "Can take a few minutes. On Windows this requires Inno Setup 6 (free, https://jrsoftware.org/isinfo.php) " +
+            "— if it's missing, the “Install Inno Setup” button appears automatically.");
+        CmdInstallInnoSetupLabel.Text = L.T("Inno Setup installieren", "Install Inno Setup");
+        CmdInstallInnoSetup.Text = L.T(
+            "Nur sichtbar unter Windows, solange Inno Setup 6 nicht gefunden wurde. Öffnet die offizielle Download-Seite " +
+            "im Standardbrowser — die App lädt oder installiert nichts selbstständig. Nach der Installation wird bei " +
+            "jeder Umgebungsprüfung und nach jedem Installer-Lauf automatisch neu geprüft; der Button verschwindet dann " +
+            "von selbst, ganz ohne App-Neustart.",
+            "Only visible on Windows, and only while Inno Setup 6 hasn't been found. Opens the official download page " +
+            "in the default browser — the app never downloads or installs anything on its own. After installation, " +
+            "availability is re-checked automatically on every environment check and after every installer run; the " +
+            "button then disappears on its own, no app restart needed.");
 
         // Troubleshooting
         TsHeader.Text = L.T("Fehlerbehebung", "Troubleshooting");

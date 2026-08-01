@@ -39,6 +39,7 @@ public sealed class MainWindowViewModel : ViewModelBase
     private string? _updateDownloadUrl;
     private bool _canRepairEnvironmentToken;
     private bool _canSanitizeRemote;
+    private bool _showInstallInnoSetup;
 
     private RelayCommand[] _allCommands = Array.Empty<RelayCommand>();
 
@@ -78,6 +79,7 @@ public sealed class MainWindowViewModel : ViewModelBase
         var exportDiagnostics = new RelayCommand(ExportDiagnosticsAsync,     () => !IsBusy);
         var buildTestPush    = new RelayCommand(BuildTestAndPushAsync,      () => !IsBusy);
         var createInstaller  = new RelayCommand(CreateInstallerAsync,       () => !IsBusy);
+        var installInnoSetup = new RelayCommand(() => { OpenInnoSetupDownload(); return Task.CompletedTask; }, () => !IsBusy);
 
         CheckEnvironmentCommand     = checkEnv;
         LoadProjectsCommand         = loadProjects;
@@ -100,6 +102,7 @@ public sealed class MainWindowViewModel : ViewModelBase
         ExportDiagnosticsCommand      = exportDiagnostics;
         BuildTestPushCommand          = buildTestPush;
         CreateInstallerCommand        = createInstaller;
+        InstallInnoSetupCommand       = installInnoSetup;
 
         _allCommands = new[]
         {
@@ -107,9 +110,10 @@ public sealed class MainWindowViewModel : ViewModelBase
             commitPush, refreshScope, setupGit, loginGitHub, installCli,
             pickFolder, addProject, removeProject, importGitHub,
             openUpdate, checkUpdateNow, repairToken, sanitizeRemote, exportDiagnostics,
-            buildTestPush, createInstaller
+            buildTestPush, createInstaller, installInnoSetup
         };
 
+        RefreshInnoSetupAvailability();
         _ = LoadProjectsAsync();
         _ = RunStartupUpdateCheckAsync();
     }
@@ -139,6 +143,7 @@ public sealed class MainWindowViewModel : ViewModelBase
     public ICommand ExportDiagnosticsCommand      { get; }
     public ICommand BuildTestPushCommand          { get; }
     public ICommand CreateInstallerCommand        { get; }
+    public ICommand InstallInnoSetupCommand       { get; }
 
     public ManagedProject? SelectedProject
     {
@@ -188,6 +193,19 @@ public sealed class MainWindowViewModel : ViewModelBase
         private set => SetProperty(ref _canSanitizeRemote, value);
     }
 
+    /// <summary>
+    /// True only on Windows, and only while Inno Setup 6 is not found at any of
+    /// its well-known install locations. Controls visibility of the proactive
+    /// "Install Inno Setup" button: shown when missing, hidden as soon as it's
+    /// found (checked at startup and re-checked whenever the environment check
+    /// or "Create Installer" run).
+    /// </summary>
+    public bool ShowInstallInnoSetup
+    {
+        get => _showInstallInnoSetup;
+        private set => SetProperty(ref _showInstallInnoSetup, value);
+    }
+
     public bool IsBusy
     {
         get => _isBusy;
@@ -204,6 +222,8 @@ public sealed class MainWindowViewModel : ViewModelBase
     {
         await Busy(async () =>
         {
+            RefreshInnoSetupAvailability();
+
             if (SelectedProject is not null &&
                 !string.IsNullOrWhiteSpace(SelectedProject.GetPathForCurrentPlatform()))
             {
@@ -541,6 +561,8 @@ public sealed class MainWindowViewModel : ViewModelBase
                 ? L.T("✅ Installer erstellt.\n\n", "✅ Installer created.\n\n")
                 : L.T("❌ Installer-Erstellung fehlgeschlagen.\n\n", "❌ Installer creation failed.\n\n"))
                 + result.CombinedOutput.Trim();
+
+            RefreshInnoSetupAvailability();
         });
     }
 
@@ -730,6 +752,36 @@ public sealed class MainWindowViewModel : ViewModelBase
         {
             Log = L.T($"Download konnte nicht geöffnet werden: {ex.Message}\n\n{_updateDownloadUrl}",
                       $"Could not open download: {ex.Message}\n\n{_updateDownloadUrl}");
+        }
+    }
+
+    /// <summary>
+    /// Re-checks whether Inno Setup 6 is installed and updates the visibility
+    /// of the proactive "Install Inno Setup" button accordingly. Called at
+    /// startup, after every environment check, and after every "Create
+    /// Installer" run — so the button disappears on its own once Inno Setup
+    /// has been installed, without requiring an app restart.
+    /// </summary>
+    private void RefreshInnoSetupAvailability()
+    {
+        ShowInstallInnoSetup = !_installerBuild.IsInnoSetupInstalled;
+    }
+
+    /// <summary>
+    /// Opens the official Inno Setup download page in the user's default
+    /// browser. Never downloads or executes an installer silently — the user
+    /// stays in control of installing third-party software on their machine.
+    /// </summary>
+    private void OpenInnoSetupDownload()
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo(InstallerBuildService.InnoSetupDownloadUrl) { UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            Log = L.T($"Download-Seite konnte nicht geöffnet werden: {ex.Message}\n\n{InstallerBuildService.InnoSetupDownloadUrl}",
+                      $"Could not open download page: {ex.Message}\n\n{InstallerBuildService.InnoSetupDownloadUrl}");
         }
     }
 

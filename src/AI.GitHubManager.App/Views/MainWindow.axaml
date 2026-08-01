@@ -218,6 +218,9 @@
                       Command="{Binding BuildTestPushCommand}"        Margin="0,0,0,8" HorizontalAlignment="Stretch" />
               <Button Content="{Binding Strings.CreateInstallerBtn}"
                       Command="{Binding CreateInstallerCommand}"      Margin="0,0,0,8" HorizontalAlignment="Stretch" />
+              <Button Content="{Binding Strings.InstallInnoSetupBtn}"
+                      Command="{Binding InstallInnoSetupCommand}"
+                      IsVisible="{Binding ShowInstallInnoSetup}"      Margin="0,0,0,8" HorizontalAlignment="Stretch" />
               <Separator Margin="0,4,0,4" />
               <Button Content="{Binding Strings.CheckForUpdate}"
                       Command="{Binding CheckForUpdateCommand}"       HorizontalAlignment="Stretch" />

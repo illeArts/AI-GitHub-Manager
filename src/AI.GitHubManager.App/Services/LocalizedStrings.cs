@@ -46,6 +46,7 @@ public sealed class LocalizedStrings : INotifyPropertyChanged
     public string CheckForUpdate    => L.T("Auf Updates prüfen",    "Check for Updates");
     public string BuildTestPushBtn  => L.T("🔧 Build, Test & Push", "🔧 Build, Test & Push");
     public string CreateInstallerBtn => L.T("📦 Installer erstellen", "📦 Create Installer");
+    public string InstallInnoSetupBtn => L.T("⬇ Inno Setup installieren", "⬇ Install Inno Setup");
 
     // ── Right panel ───────────────────────────────────────────────────────────
     public string LocalLinkHeader   => L.T("Lokale Verknüpfung",   "Local Link");
