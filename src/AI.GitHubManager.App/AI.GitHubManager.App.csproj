@@ -50,4 +50,10 @@
     <ProjectReference Include="..\AI.GitHubManager.Core\AI.GitHubManager.Core.csproj" />
     <ProjectReference Include="..\AI.GitHubManager.Data\AI.GitHubManager.Data.csproj" />
   </ItemGroup>
+
+  <!-- Allows the test project to use the internal GitService-injecting constructor
+       on MainWindowViewModel (test/DI seam for deterministic lock-detection tests). -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="AI.GitHubManager.Tests" />
+  </ItemGroup>
 </Project>

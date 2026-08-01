@@ -49,9 +49,20 @@ public sealed class MainWindowViewModel : ViewModelBase
     public LocalizedStrings Strings => LocalizedStrings.Instance;
     public Func<Task<string?>>? FolderPickerFunc { get; set; }
 
-    public MainWindowViewModel()
+    public MainWindowViewModel() : this(gitService: null) { }
+
+    /// <summary>
+    /// Test/DI seam: allows injecting a <see cref="GitService"/> already configured
+    /// with a fake <see cref="IGitProcessDetector"/> (e.g. always-"no active process"
+    /// or always-"active process"), so lock-detection tests are deterministic and do
+    /// not depend on real git.exe processes that may be running concurrently on the
+    /// test machine (including ones spawned by other tests in the same run). The
+    /// parameterless constructor passes <c>null</c> and gets the real, production
+    /// <see cref="GitService"/> with the platform's real process detector.
+    /// </summary>
+    internal MainWindowViewModel(GitService? gitService)
     {
-        _git             = new GitService(_runner);
+        _git             = gitService ?? new GitService(_runner);
         _gh              = new GitHubCliService(_runner);
         _checks          = new EnvironmentCheckService(_git, _gh);
         _preflight       = new SyncPreflightService(_git, _gh);

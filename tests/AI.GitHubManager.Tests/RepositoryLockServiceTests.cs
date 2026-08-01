@@ -68,11 +68,12 @@ public sealed class RepositoryLockServiceTests
 
         await Task.WhenAll(taskA, taskB);
 
-        Assert.True(bothRunningAtOnce.Task.Result, "Two different repositories must not serialize against each other.");
+        var bothRanConcurrently = await bothRunningAtOnce.Task;
+        Assert.True(bothRanConcurrently, "Two different repositories must not serialize against each other.");
     }
 
     [Fact]
-    public void IsWriteInProgress_WhileGateHeld_ReturnsTrue_ThenFalseAfterRelease()
+    public async Task IsWriteInProgress_WhileGateHeld_ReturnsTrue_ThenFalseAfterRelease()
     {
         var service = new RepositoryLockService();
         var repo = Path.Combine(Path.GetTempPath(), "ai-github-manager-lock-inprogress-test");
@@ -80,7 +81,7 @@ public sealed class RepositoryLockServiceTests
 
         Assert.False(service.IsWriteInProgress(repo));
 
-        var handle = service.AcquireAsync(repo).GetAwaiter().GetResult();
+        var handle = await service.AcquireAsync(repo);
         Assert.True(service.IsWriteInProgress(repo));
 
         handle.Dispose();
@@ -88,7 +89,7 @@ public sealed class RepositoryLockServiceTests
     }
 
     [Fact]
-    public void NormalizeKey_CaseDifference_MapsToTheSameLockKey()
+    public async Task NormalizeKey_CaseDifference_MapsToTheSameLockKey()
     {
         // The underlying dictionary uses an OrdinalIgnoreCase comparer specifically so
         // that Windows' case-insensitive filesystem doesn't let two "different-looking"
@@ -97,7 +98,7 @@ public sealed class RepositoryLockServiceTests
         var repo = Path.Combine(Path.GetTempPath(), "ai-github-manager-lock-case-test", "MixedCaseRepo");
         Directory.CreateDirectory(repo);
 
-        var handle = service.AcquireAsync(repo).GetAwaiter().GetResult();
+        var handle = await service.AcquireAsync(repo);
         try
         {
             Assert.True(service.IsWriteInProgress(repo));
