@@ -44,6 +44,8 @@ public sealed class LocalizedStrings : INotifyPropertyChanged
     public string DownloadUpdateBtn => L.T("⬇ Jetzt herunterladen",  "⬇ Download now");
     public string SaveProject       => L.T("Projekt speichern",     "Save Project");
     public string CheckForUpdate    => L.T("Auf Updates prüfen",    "Check for Updates");
+    public string BuildTestPushBtn  => L.T("🔧 Build, Test & Push", "🔧 Build, Test & Push");
+    public string CreateInstallerBtn => L.T("📦 Installer erstellen", "📦 Create Installer");
 
     // ── Right panel ───────────────────────────────────────────────────────────
     public string LocalLinkHeader   => L.T("Lokale Verknüpfung",   "Local Link");

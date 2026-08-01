@@ -86,6 +86,8 @@ MVP-Gerüst ist vorbereitet:
 - Remote-URL-Normalisierung, Erkennung von Zugangsdaten/Platzhaltern in der URL, Ein-Klick-Bereinigung
 - redigierter Diagnosebericht-Export ohne Tokens/Passwörter
 - vollständig zweisprachiges UI (Deutsch/Englisch) inkl. Hilfe-Fenster, Über-Fenster und Export-Dialog
+- Self-Service „Build, Test & Push" für .NET-Projekte (bricht vor dem Push ab, wenn Build oder Test fehlschlagen)
+- „Installer erstellen" für Windows (Publish + Inno Setup) und macOS (build-installer-mac.sh)
 
 Das vollständige Benutzerhandbuch (Schnellstart, alle Befehle, Fehlerbehebung, Sicherheit) ist im
 Menü **Hilfe → Hilfe / Befehle** der App verfügbar und existiert auf Deutsch und Englisch.
@@ -118,6 +120,23 @@ AI.GitHubManager
 ## Produktziel
 
 AI GitHub Manager soll kein AAIA-only Tool sein. Es ist ein allgemeiner GitHub-Manager für alle aktuellen und zukünftigen Projekte.
+
+## Version 1.6.0 — Selbst-Build, Test & Installer-Erstellung; UI-Layout
+
+Neu:
+
+- **Build, Test & Push**: Für .NET-Projekte (z. B. dieses Repository) führt die App `dotnet build`,
+  dann `dotnet test` aus. Nur bei Erfolg beider Schritte wird committet und gepusht — bei einem
+  Fehlschlag wird nichts gepusht. Erkennt automatisch, ob ein unterstütztes .NET-Build-System
+  (`.sln`/`.csproj`) im Projektordner vorhanden ist.
+- **Installer erstellen**: Erstellt auf Windows einen Installer (Self-Contained-Publish + Inno Setup
+  6, sofern installiert) und auf macOS über das vorhandene `build-installer-mac.sh`. Läuft direkt
+  aus der App, ohne das lokale, nicht versionierte `build-installer-win.bat` aufzurufen (das Skript
+  ist bewusst git-ignoriert und wartet interaktiv auf Tasteneingaben, was bei nicht-interaktiver
+  Ausführung zum Einfrieren führen würde).
+- **UI-Layout**: Die Aktions-Buttons standen bisher direkt unter der Projektliste und nahmen ihr
+  fast den ganzen Platz weg. Neues drittes Panel rechts neben dem Ausgabefeld nimmt jetzt alle
+  Aktions-Buttons auf; die Projektliste links hat wieder ausreichend Raum.
 
 ## Version 1.5.1 — Build-Fix für die Avalonia-Oberfläche
 

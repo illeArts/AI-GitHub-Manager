@@ -78,6 +78,18 @@ public partial class HelpWindow : Window
             "mit Erkennung möglicherweise sensibler Dateien.",
             "Opens the Clean Export dialog: creates a ZIP archive of the project without the .git directory, " +
             "with detection of potentially sensitive files.");
+        CmdBuildTestPushLabel.Text = L.T("Build, Test & Push", "Build, Test & Push");
+        CmdBuildTestPush.Text = L.T(
+            "Für .NET-Projekte (z. B. dieses Repository): führt dotnet build, dann dotnet test aus. " +
+            "Nur wenn beides erfolgreich war, wird committet und gepusht. Bei Fehlschlag wird nichts gepusht.",
+            "For .NET projects (e.g. this repository): runs dotnet build, then dotnet test. " +
+            "Only commits and pushes if both succeed. Nothing is pushed on failure.");
+        CmdCreateInstallerLabel.Text = L.T("Installer erstellen", "Create Installer");
+        CmdCreateInstaller.Text = L.T(
+            "Erstellt einen Windows-Installer (Publish + Inno Setup) oder ruft build-installer-mac.sh auf macOS auf. " +
+            "Kann einige Minuten dauern.",
+            "Creates a Windows installer (publish + Inno Setup) or runs build-installer-mac.sh on macOS. " +
+            "Can take a few minutes.");
 
         // Troubleshooting
         TsHeader.Text = L.T("Fehlerbehebung", "Troubleshooting");

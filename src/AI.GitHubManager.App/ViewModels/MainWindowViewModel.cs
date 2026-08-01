@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Windows.Input;
 using AI.GitHubManager.App.Services;
+using AI.GitHubManager.Core.Build;
 using AI.GitHubManager.Core.Diagnostics;
 using AI.GitHubManager.Core.EnvironmentRepair;
 using AI.GitHubManager.Core.Git;
@@ -24,6 +25,8 @@ public sealed class MainWindowViewModel : ViewModelBase
     private readonly EnvironmentCheckService _checks;
     private readonly SyncPreflightService _preflight;
     private readonly AuthenticationDiagnosticService _authDiagnostics;
+    private readonly ProjectBuildService _projectBuild;
+    private readonly InstallerBuildService _installerBuild;
     private readonly UpdateCheckService _updateCheck = new();
     private readonly JsonProjectStore _store = new();
 
@@ -49,6 +52,8 @@ public sealed class MainWindowViewModel : ViewModelBase
         _checks          = new EnvironmentCheckService(_git, _gh);
         _preflight       = new SyncPreflightService(_git, _gh);
         _authDiagnostics = new AuthenticationDiagnosticService(_gh);
+        _projectBuild    = new ProjectBuildService(_runner);
+        _installerBuild  = new InstallerBuildService(_runner);
 
         Projects = new ObservableCollection<ManagedProject>();
 
@@ -71,6 +76,8 @@ public sealed class MainWindowViewModel : ViewModelBase
         var repairToken      = new RelayCommand(RepairEnvironmentTokenAsync, () => !IsBusy);
         var sanitizeRemote   = new RelayCommand(SanitizeRemoteAsync,         () => !IsBusy);
         var exportDiagnostics = new RelayCommand(ExportDiagnosticsAsync,     () => !IsBusy);
+        var buildTestPush    = new RelayCommand(BuildTestAndPushAsync,      () => !IsBusy);
+        var createInstaller  = new RelayCommand(CreateInstallerAsync,       () => !IsBusy);
 
         CheckEnvironmentCommand     = checkEnv;
         LoadProjectsCommand         = loadProjects;
@@ -91,13 +98,16 @@ public sealed class MainWindowViewModel : ViewModelBase
         RepairEnvironmentTokenCommand = repairToken;
         SanitizeRemoteCommand         = sanitizeRemote;
         ExportDiagnosticsCommand      = exportDiagnostics;
+        BuildTestPushCommand          = buildTestPush;
+        CreateInstallerCommand        = createInstaller;
 
         _allCommands = new[]
         {
             checkEnv, loadProjects, saveProject, gitStatus, pull,
             commitPush, refreshScope, setupGit, loginGitHub, installCli,
             pickFolder, addProject, removeProject, importGitHub,
-            openUpdate, checkUpdateNow, repairToken, sanitizeRemote, exportDiagnostics
+            openUpdate, checkUpdateNow, repairToken, sanitizeRemote, exportDiagnostics,
+            buildTestPush, createInstaller
         };
 
         _ = LoadProjectsAsync();
@@ -127,6 +137,8 @@ public sealed class MainWindowViewModel : ViewModelBase
     public ICommand RepairEnvironmentTokenCommand { get; }
     public ICommand SanitizeRemoteCommand         { get; }
     public ICommand ExportDiagnosticsCommand      { get; }
+    public ICommand BuildTestPushCommand          { get; }
+    public ICommand CreateInstallerCommand        { get; }
 
     public ManagedProject? SelectedProject
     {
@@ -437,6 +449,98 @@ public sealed class MainWindowViewModel : ViewModelBase
                   L.T("Enthält keine Tokens oder Passwörter — kann sicher an einen Entwickler weitergegeben werden.\n\n",
                       "Contains no tokens or passwords — safe to share with a developer.\n\n") +
                   "──────────────────────────────\n\n" + report;
+        });
+    }
+
+    /// <summary>
+    /// Self-service release step: builds, then tests, then commits+pushes — in that
+    /// order, stopping immediately on the first failure. Never pushes code that
+    /// doesn't build or whose tests fail. Intended for .NET projects (like this
+    /// manager's own repository); other project types get a clear "no build
+    /// system found" message instead of a confusing failure.
+    /// </summary>
+    private async Task BuildTestAndPushAsync()
+    {
+        await Busy(async () =>
+        {
+            if (string.IsNullOrWhiteSpace(LocalPath))
+            {
+                Log = L.T("Kein lokaler Ordner ausgewählt.", "No local folder selected.");
+                return;
+            }
+
+            var sb = new StringBuilder();
+
+            sb.AppendLine(L.T("Schritt 1/3: Build …", "Step 1/3: Build …"));
+            var build = await _projectBuild.BuildAsync(LocalPath);
+            sb.AppendLine(build.CombinedOutput.Trim());
+            if (!build.Success)
+            {
+                sb.AppendLine();
+                sb.AppendLine(L.T("❌ Build fehlgeschlagen. Test und Push wurden übersprungen.",
+                                   "❌ Build failed. Test and push were skipped."));
+                Log = sb.ToString();
+                return;
+            }
+
+            sb.AppendLine();
+            sb.AppendLine(L.T("Schritt 2/3: Test …", "Step 2/3: Test …"));
+            var test = await _projectBuild.TestAsync(LocalPath);
+            sb.AppendLine(test.CombinedOutput.Trim());
+            if (!test.Success)
+            {
+                sb.AppendLine();
+                sb.AppendLine(L.T("❌ Tests fehlgeschlagen. Push wurde übersprungen.",
+                                   "❌ Tests failed. Push was skipped."));
+                Log = sb.ToString();
+                return;
+            }
+
+            sb.AppendLine();
+            sb.AppendLine(L.T("Schritt 3/3: Commit + Push …", "Step 3/3: Commit + Push …"));
+            var push = await _git.CommitAndPushAsync(LocalPath, CommitMessage);
+            sb.AppendLine(push.Success ? push.CombinedOutput.Trim() : EnrichWithErrorHint(push.CombinedOutput));
+            sb.AppendLine();
+            sb.AppendLine(push.Success
+                ? L.T("✅ Build, Test und Push erfolgreich.", "✅ Build, test, and push successful.")
+                : L.T("⚠️ Build und Test erfolgreich, aber Push fehlgeschlagen.",
+                      "⚠️ Build and test succeeded, but push failed."));
+
+            Log = sb.ToString();
+        });
+    }
+
+    /// <summary>
+    /// Creates a distributable installer for the current project on this platform
+    /// (Windows: publish + Inno Setup; macOS: build-installer-mac.sh). Can take
+    /// several minutes — the log is only updated once the whole step finishes.
+    /// </summary>
+    private async Task CreateInstallerAsync()
+    {
+        await Busy(async () =>
+        {
+            if (string.IsNullOrWhiteSpace(LocalPath))
+            {
+                Log = L.T("Kein lokaler Ordner ausgewählt.", "No local folder selected.");
+                return;
+            }
+
+            if (!_installerBuild.IsSupportedOnCurrentPlatform)
+            {
+                Log = L.T("Installer-Erstellung wird auf diesem Betriebssystem nicht unterstützt (nur Windows/macOS).",
+                          "Installer creation isn't supported on this operating system (Windows/macOS only).");
+                return;
+            }
+
+            Log = L.T("Installer wird erstellt … das kann einige Minuten dauern.",
+                      "Creating installer … this can take a few minutes.");
+
+            var result = await _installerBuild.CreateInstallerAsync(LocalPath);
+
+            Log = (result.Success
+                ? L.T("✅ Installer erstellt.\n\n", "✅ Installer created.\n\n")
+                : L.T("❌ Installer-Erstellung fehlgeschlagen.\n\n", "❌ Installer creation failed.\n\n"))
+                + result.CombinedOutput.Trim();
         });
     }
 
