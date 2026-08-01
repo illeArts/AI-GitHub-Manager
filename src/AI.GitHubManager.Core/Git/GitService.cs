@@ -5,8 +5,32 @@ namespace AI.GitHubManager.Core.Git;
 public sealed class GitService
 {
     private readonly CommandRunner _runner;
+    private readonly RepositoryLockService _lockService;
+    private readonly GitLockGuard _lockGuard;
 
-    public GitService(CommandRunner runner) => _runner = runner;
+    public GitService(CommandRunner runner) : this(runner, RepositoryLockService.Shared, new GitLockGuard(runner)) { }
+
+    /// <summary>Test/DI seam: inject a fake <see cref="RepositoryLockService"/> or
+    /// <see cref="GitLockGuard"/> (e.g. with a fake <see cref="IGitProcessDetector"/>).</summary>
+    public GitService(CommandRunner runner, RepositoryLockService lockService, GitLockGuard lockGuard)
+    {
+        _runner = runner;
+        _lockService = lockService;
+        _lockGuard = lockGuard;
+    }
+
+    /// <summary>Filesystem-only, side-effect-free check of the current lock/interrupted
+    /// state — safe to call from UI refresh logic (e.g. "Umgebung prüfen").</summary>
+    public GitLockCheckResult CheckLockStatus(string repositoryPath) => _lockGuard.CheckIndexLock(repositoryPath);
+
+    /// <summary>Explicit, user-triggered removal of a verified-orphaned <c>index.lock</c>
+    /// (the "Verwaiste Git-Sperre sicher entfernen" button). Serializes against any other
+    /// writing operation for this repository just like the other write methods.</summary>
+    public async Task<GitLockCheckResult> RemoveOrphanedGitLockAsync(string repositoryPath, CancellationToken cancellationToken = default)
+    {
+        using var _ = await _lockService.AcquireAsync(repositoryPath, cancellationToken);
+        return await _lockGuard.RemoveOrphanedLockAsync(repositoryPath, cancellationToken);
+    }
 
     public Task<CommandResult> VersionAsync() => _runner.RunAsync("git", ["--version"]);
 
@@ -49,6 +73,10 @@ public sealed class GitService
         string? remoteUrl = null,
         CancellationToken cancellationToken = default)
     {
+        using var _ = await _lockService.AcquireAsync(repositoryPath, cancellationToken);
+        var lockGuardResult = await _lockGuard.EnsureWritableAsync(repositoryPath, cancellationToken);
+        if (lockGuardResult is not null) return lockGuardResult;
+
         var repositoryCheck = await EnsureRepositoryAsync(repositoryPath, remoteUrl, cancellationToken);
         if (repositoryCheck is not null) return repositoryCheck;
 
@@ -93,6 +121,10 @@ public sealed class GitService
 
     public async Task<CommandResult> CommitAndPushAsync(string repositoryPath, string message, CancellationToken cancellationToken = default)
     {
+        using var _ = await _lockService.AcquireAsync(repositoryPath, cancellationToken);
+        var lockGuardResult = await _lockGuard.EnsureWritableAsync(repositoryPath, cancellationToken);
+        if (lockGuardResult is not null) return lockGuardResult;
+
         var repositoryCheck = await EnsureRepositoryAsync(repositoryPath, cancellationToken);
         if (repositoryCheck is not null) return repositoryCheck;
 

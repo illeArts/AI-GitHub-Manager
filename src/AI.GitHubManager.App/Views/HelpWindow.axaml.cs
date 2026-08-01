@@ -38,8 +38,15 @@ public partial class HelpWindow : Window
         CmdHeader.Text = L.T("Befehle", "Commands");
         CmdStatus.Text = L.T("Zeigt Branch, Remote-URL und alle geänderten Dateien.",
                              "Shows branch, remote URL, and all changed files.");
-        CmdPull.Text   = L.T("Pull — Fast-Forward wenn möglich, sonst automatisch Rebase.",
-                             "Pull — fast-forward when possible, otherwise auto-rebase.");
+        CmdPull.Text   = L.T(
+            "Pull — sicherer Pull (Standard): lokale Änderungen werden vor dem Pull automatisch per " +
+            "Git-Stash gesichert, danach nur Fast-Forward (kein automatischer Merge/Rebase), anschließend " +
+            "wird die Sicherung wiederhergestellt. Bei Konflikten oder Fehlern bleibt die Sicherung erhalten " +
+            "und es wird nichts verworfen. In den Einstellungen umschaltbar auf \"nur warnen und abbrechen\".",
+            "Pull — safe pull (default): local changes are automatically backed up via a git stash before " +
+            "pulling, then only a fast-forward pull runs (never an automatic merge/rebase), and the backup " +
+            "is restored afterwards. On conflicts or failures the backup is kept and nothing is discarded. " +
+            "Can be switched to \"warn and abort only\" in Settings.");
         CmdCommit.Text = L.T("Staged alle Änderungen, commitet mit deiner Nachricht und pusht zum Remote.",
                              "Stages all changes, commits with your message, and pushes to remote.");
         CmdImportLabel.Text = L.T("Von GitHub importieren", "Import from GitHub");
@@ -102,6 +109,21 @@ public partial class HelpWindow : Window
             "in the default browser — the app never downloads or installs anything on its own. After installation, " +
             "availability is re-checked automatically on every environment check and after every installer run; the " +
             "button then disappears on its own, no app restart needed.");
+        CmdRemoveOrphanedGitLockLabel.Text = L.T("Verwaiste Git-Sperre sicher entfernen", "Safely remove orphaned git lock");
+        CmdRemoveOrphanedGitLock.Text = L.T(
+            "Erscheint nur, wenn eine .git/index.lock-Datei gefunden wurde, kein aktiver Git-Prozess erkannt " +
+            "werden konnte und die Sperre alt genug ist, um sicher als verwaist zu gelten. Läuft ein Git-Prozess " +
+            "(egal ob dieser App oder ein anderes Programm/Terminal), bleibt die Sperre unangetastet und der Button " +
+            "erscheint nicht. Vor dem Löschen wird direkt nochmal geprüft, danach läuft git status — nur bei " +
+            "gültigem Ergebnis gilt die Reparatur als erfolgreich. Unterbrochene Merges/Rebases/Cherry-Picks werden " +
+            "getrennt erkannt und niemals automatisch bereinigt. Pro Projektordner läuft ohnehin nie mehr als eine " +
+            "schreibende Git-Aktion gleichzeitig (Pull, Commit + Push, Build/Test/Push).",
+            "Only appears when a .git/index.lock file was found, no active git process could be detected, and the " +
+            "lock is old enough to be treated as orphaned. If any git process is running — this app's or another " +
+            "program/terminal's — the lock is left untouched and the button doesn't appear. It re-verifies right " +
+            "before deleting, then runs git status afterwards — only a valid result counts as success. Interrupted " +
+            "merges/rebases/cherry-picks are detected separately and are never auto-cleaned. Only one writing git " +
+            "action ever runs at a time per project folder anyway (Pull, Commit + Push, Build/Test/Push).");
 
         // Troubleshooting
         TsHeader.Text = L.T("Fehlerbehebung", "Troubleshooting");
@@ -111,8 +133,11 @@ public partial class HelpWindow : Window
                        "\"Authentication failed\"  →  Click \"GitHub Login\".");
         Ts3.Text = L.T("\"refusing to allow ... workflow\"  →  \"GitHub Rechte: repo + workflow\" klicken.",
                        "\"refusing to allow ... workflow\"  →  Click \"GitHub Rechte: repo + workflow\".");
-        Ts4.Text = L.T("\"non-fast-forward\" / divergierte Branches  →  Pull erkennt das automatisch und führt Rebase durch.",
-                       "\"non-fast-forward\" / diverged branches  →  Pull detects this automatically and rebases.");
+        Ts4.Text = L.T(
+            "\"non-fast-forward\" / divergierte Branches  →  Sicherer Pull führt bewusst KEINEN automatischen " +
+            "Merge/Rebase aus; Fast-Forward ist dann nicht möglich, der Pull wird abgebrochen und nichts verändert.",
+            "\"non-fast-forward\" / diverged branches  →  Safe pull deliberately performs NO automatic merge/rebase; " +
+            "fast-forward isn't possible, the pull is aborted and nothing is changed.");
         Ts5.Text = L.T("\"Keine Änderungen – Commit übersprungen\"  →  Keine Änderungen erkannt, Push wurde trotzdem ausgeführt.",
                        "\"Keine Änderungen – Commit übersprungen\"  →  No changes detected, push was still executed.");
         Ts6.Text = L.T(

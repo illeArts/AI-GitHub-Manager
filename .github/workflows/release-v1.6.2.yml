@@ -1,24 +1,24 @@
-name: Release v1.6.1 — Windows and Linux
+name: Release v1.6.2 — Windows and Linux
 
 on:
   push:
     branches:
       - main
     paths:
-      - '.github/workflows/release-v1.6.1.yml'
+      - '.github/workflows/release-v1.6.2.yml'
       - 'installer/AI-GitHub-Manager.iss'
-      - 'RELEASE_NOTES_v1.6.1.md'
+      - 'RELEASE_NOTES_v1.6.2.md'
   workflow_dispatch:
 
 permissions:
   contents: write
 
 concurrency:
-  group: release-v1.6.1-windows-linux
+  group: release-v1.6.2-windows-linux
   cancel-in-progress: true
 
 env:
-  VERSION: 1.6.1
+  VERSION: 1.6.2
   PROJECT: src/AI.GitHubManager.App/AI.GitHubManager.App.csproj
 
 jobs:
@@ -37,11 +37,11 @@ jobs:
       - name: Verify project and installer versions
         shell: bash
         run: |
-          grep -q '<Version>1.6.1</Version>' "$PROJECT"
-          grep -q '<AssemblyVersion>1.6.1.0</AssemblyVersion>' "$PROJECT"
-          grep -q '<FileVersion>1.6.1.0</FileVersion>' "$PROJECT"
-          grep -q '<InformationalVersion>1.6.1</InformationalVersion>' "$PROJECT"
-          grep -q '#define AppVersion "1.6.1"' installer/AI-GitHub-Manager.iss
+          grep -q '<Version>1.6.2</Version>' "$PROJECT"
+          grep -q '<AssemblyVersion>1.6.2.0</AssemblyVersion>' "$PROJECT"
+          grep -q '<FileVersion>1.6.2.0</FileVersion>' "$PROJECT"
+          grep -q '<InformationalVersion>1.6.2</InformationalVersion>' "$PROJECT"
+          grep -q '#define AppVersion "1.6.2"' installer/AI-GitHub-Manager.iss
 
       - name: Restore
         run: dotnet restore AI.GitHubManager.sln
@@ -97,7 +97,7 @@ jobs:
           cp PRIVACY.md "artifacts/publish/${{ matrix.rid }}/PRIVACY.md"
           cp SECURITY.md "artifacts/publish/${{ matrix.rid }}/SECURITY.md"
           cp THIRD-PARTY-NOTICES.md "artifacts/publish/${{ matrix.rid }}/THIRD-PARTY-NOTICES.md"
-          cp RELEASE_NOTES_v1.6.1.md "artifacts/publish/${{ matrix.rid }}/RELEASE_NOTES.md"
+          cp RELEASE_NOTES_v1.6.2.md "artifacts/publish/${{ matrix.rid }}/RELEASE_NOTES.md"
 
       - name: Create Windows archive
         if: matrix.archive == 'zip'
@@ -154,7 +154,7 @@ jobs:
           Copy-Item PRIVACY.md artifacts/publish/win-x64/PRIVACY.md
           Copy-Item SECURITY.md artifacts/publish/win-x64/SECURITY.md
           Copy-Item THIRD-PARTY-NOTICES.md artifacts/publish/win-x64/THIRD-PARTY-NOTICES.md
-          Copy-Item RELEASE_NOTES_v1.6.1.md artifacts/publish/win-x64/RELEASE_NOTES.md
+          Copy-Item RELEASE_NOTES_v1.6.2.md artifacts/publish/win-x64/RELEASE_NOTES.md
 
       - name: Install Inno Setup 6
         shell: pwsh
@@ -217,14 +217,14 @@ jobs:
             gh release upload "v${VERSION}" release-assets/* --clobber
             gh release edit "v${VERSION}" \
               --title "AI GitHub Manager v${VERSION}" \
-              --notes-file RELEASE_NOTES_v1.6.1.md \
+              --notes-file RELEASE_NOTES_v1.6.2.md \
               --latest
           else
             gh release create "v${VERSION}" \
               release-assets/* \
               --target "${GITHUB_SHA}" \
               --title "AI GitHub Manager v${VERSION}" \
-              --notes-file RELEASE_NOTES_v1.6.1.md \
+              --notes-file RELEASE_NOTES_v1.6.2.md \
               --latest \
               --verify-tag=false
           fi

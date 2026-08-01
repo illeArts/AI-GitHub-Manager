@@ -28,7 +28,9 @@ public sealed class MainWindowViewModel : ViewModelBase
     private readonly ProjectBuildService _projectBuild;
     private readonly InstallerBuildService _installerBuild;
     private readonly UpdateCheckService _updateCheck = new();
+    private readonly SafePullService _safePull;
     private readonly JsonProjectStore _store = new();
+    private readonly AppSettingsService _settings = AppSettingsService.Load();
 
     private ManagedProject? _selectedProject;
     private string _localPath = string.Empty;
@@ -40,21 +42,34 @@ public sealed class MainWindowViewModel : ViewModelBase
     private bool _canRepairEnvironmentToken;
     private bool _canSanitizeRemote;
     private bool _showInstallInnoSetup;
+    private bool _canRemoveOrphanedGitLock;
 
     private RelayCommand[] _allCommands = Array.Empty<RelayCommand>();
 
     public LocalizedStrings Strings => LocalizedStrings.Instance;
     public Func<Task<string?>>? FolderPickerFunc { get; set; }
 
-    public MainWindowViewModel()
+    public MainWindowViewModel() : this(gitService: null) { }
+
+    /// <summary>
+    /// Test/DI seam: allows injecting a <see cref="GitService"/> already configured
+    /// with a fake <see cref="IGitProcessDetector"/> (e.g. always-"no active process"
+    /// or always-"active process"), so lock-detection tests are deterministic and do
+    /// not depend on real git.exe processes that may be running concurrently on the
+    /// test machine (including ones spawned by other tests in the same run). The
+    /// parameterless constructor passes <c>null</c> and gets the real, production
+    /// <see cref="GitService"/> with the platform's real process detector.
+    /// </summary>
+    internal MainWindowViewModel(GitService? gitService)
     {
-        _git             = new GitService(_runner);
+        _git             = gitService ?? new GitService(_runner);
         _gh              = new GitHubCliService(_runner);
         _checks          = new EnvironmentCheckService(_git, _gh);
         _preflight       = new SyncPreflightService(_git, _gh);
         _authDiagnostics = new AuthenticationDiagnosticService(_gh);
         _projectBuild    = new ProjectBuildService(_runner);
         _installerBuild  = new InstallerBuildService(_runner);
+        _safePull        = new SafePullService(_runner);
 
         Projects = new ObservableCollection<ManagedProject>();
 
@@ -80,6 +95,7 @@ public sealed class MainWindowViewModel : ViewModelBase
         var buildTestPush    = new RelayCommand(BuildTestAndPushAsync,      () => !IsBusy);
         var createInstaller  = new RelayCommand(CreateInstallerAsync,       () => !IsBusy);
         var installInnoSetup = new RelayCommand(() => { OpenInnoSetupDownload(); return Task.CompletedTask; }, () => !IsBusy);
+        var removeOrphanedGitLock = new RelayCommand(RemoveOrphanedGitLockAsync, () => !IsBusy);
 
         CheckEnvironmentCommand     = checkEnv;
         LoadProjectsCommand         = loadProjects;
@@ -103,6 +119,7 @@ public sealed class MainWindowViewModel : ViewModelBase
         BuildTestPushCommand          = buildTestPush;
         CreateInstallerCommand        = createInstaller;
         InstallInnoSetupCommand       = installInnoSetup;
+        RemoveOrphanedGitLockCommand  = removeOrphanedGitLock;
 
         _allCommands = new[]
         {
@@ -110,7 +127,7 @@ public sealed class MainWindowViewModel : ViewModelBase
             commitPush, refreshScope, setupGit, loginGitHub, installCli,
             pickFolder, addProject, removeProject, importGitHub,
             openUpdate, checkUpdateNow, repairToken, sanitizeRemote, exportDiagnostics,
-            buildTestPush, createInstaller, installInnoSetup
+            buildTestPush, createInstaller, installInnoSetup, removeOrphanedGitLock
         };
 
         RefreshInnoSetupAvailability();
@@ -144,6 +161,7 @@ public sealed class MainWindowViewModel : ViewModelBase
     public ICommand BuildTestPushCommand          { get; }
     public ICommand CreateInstallerCommand        { get; }
     public ICommand InstallInnoSetupCommand       { get; }
+    public ICommand RemoveOrphanedGitLockCommand  { get; }
 
     public ManagedProject? SelectedProject
     {
@@ -206,6 +224,18 @@ public sealed class MainWindowViewModel : ViewModelBase
         private set => SetProperty(ref _showInstallInnoSetup, value);
     }
 
+    /// <summary>
+    /// True when the last check found a <c>.git/index.lock</c> that looks orphaned
+    /// (no active git process detected, old enough to be safe). Controls visibility
+    /// of the "Verwaiste Git-Sperre sicher entfernen" button. Never set true for a
+    /// lock that might still belong to an active process — see <c>GitLockGuard</c>.
+    /// </summary>
+    public bool CanRemoveOrphanedGitLock
+    {
+        get => _canRemoveOrphanedGitLock;
+        private set => SetProperty(ref _canRemoveOrphanedGitLock, value);
+    }
+
     public bool IsBusy
     {
         get => _isBusy;
@@ -243,6 +273,11 @@ public sealed class MainWindowViewModel : ViewModelBase
                 CanRepairEnvironmentToken = check.Authentication?.State == AuthenticationState.EnvironmentTokenOverridesValidKeyring;
                 CanSanitizeRemote = false;
             }
+
+            // Runs last so a detected lock/interrupted-state banner it may prepend to
+            // Log survives (an earlier Log = ... assignment above would otherwise wipe
+            // it out, and the banner needs the final Log text to prepend onto).
+            RefreshGitLockAvailability();
         });
     }
 
@@ -287,12 +322,68 @@ public sealed class MainWindowViewModel : ViewModelBase
     {
         await Busy(async () =>
         {
-            var result = await _git.PullAsync(LocalPath, SelectedProject?.DefaultBranch, SelectedProject?.RemoteUrl);
-            Log = result.Success
-                ? result.CombinedOutput
-                : EnrichWithErrorHint(result.CombinedOutput);
+            if (!_settings.SafePullEnabled)
+            {
+                // Legacy path retained only for completeness; the default and
+                // recommended path is the safe pull below.
+                var legacyResult = await _git.PullAsync(LocalPath, SelectedProject?.DefaultBranch, SelectedProject?.RemoteUrl);
+                Log = legacyResult.Success
+                    ? legacyResult.CombinedOutput
+                    : EnrichWithErrorHint(legacyResult.CombinedOutput);
+                RefreshGitLockAvailability();
+                return;
+            }
+
+            var result = await _safePull.PullAsync(LocalPath, warnOnlyOnLocalChanges: false);
+            Log = FormatSafePullResult(result);
+            RefreshGitLockAvailability();
         });
     }
+
+    /// <summary>Renders a SafePullResult into a user-facing log message.
+    /// Every state is handled explicitly — nothing falls through to raw console text.</summary>
+    private string FormatSafePullResult(SafePullResult result)
+    {
+        return result.State switch
+        {
+            SafePullState.CleanPullSucceeded =>
+                result.PullOutput ?? result.Message,
+
+            SafePullState.PullSucceededAndChangesRestored =>
+                result.Message + "\n\n" + (result.PullOutput ?? string.Empty),
+
+            SafePullState.PullFailedAndRestored =>
+                EnrichWithErrorHint(result.Message),
+
+            SafePullState.RestoreConflict =>
+                result.Message + "\n\n" +
+                L.T("Betroffene Dateien:\n", "Affected files:\n") +
+                string.Join("\n", result.ConflictFiles) +
+                "\n\n" + L.T(
+                    "Aktionen: Konflikte anzeigen, Sicherung behalten, oder Wiederherstellung erneut versuchen. " +
+                    "Es wurden keine lokalen Änderungen verworfen.",
+                    "Actions: view conflicts, keep the backup, or retry the restore. " +
+                    "No local changes were discarded."),
+
+            SafePullState.BackupCreationFailed => result.Message,
+            SafePullState.RestoreFailed        => result.Message,
+            SafePullState.AbortedDueToLocalChanges =>
+                result.Message + "\n\n" + string.Join("\n", result.ConflictFiles),
+            SafePullState.FastForwardNotPossible => result.Message,
+            SafePullState.NotARepository         => result.Message,
+
+            SafePullState.WriteBlockedByLockGuard => result.Message + "\n\n" + L.T(
+                "Nichts wurde verändert — weder ein Stash noch ein Pull wurde ausgeführt. " +
+                "Falls die Sperre verwaist ist, kann sie über \"Verwaiste Git-Sperre sicher entfernen\" " +
+                "geprüft und entfernt werden.",
+                "Nothing was changed — neither a stash nor a pull ran. " +
+                "If the lock is orphaned, it can be checked and removed via " +
+                "\"Safely remove orphaned git lock\"."),
+
+            _ => result.Message,
+        };
+    }
+
 
     private async Task CommitPushAsync()
     {
@@ -302,6 +393,7 @@ public sealed class MainWindowViewModel : ViewModelBase
             Log = result.Success
                 ? result.CombinedOutput
                 : EnrichWithErrorHint(result.CombinedOutput);
+            RefreshGitLockAvailability();
         });
     }
 
@@ -527,6 +619,7 @@ public sealed class MainWindowViewModel : ViewModelBase
                       "⚠️ Build and test succeeded, but push failed."));
 
             Log = sb.ToString();
+            RefreshGitLockAvailability();
         });
     }
 
@@ -721,16 +814,39 @@ public sealed class MainWindowViewModel : ViewModelBase
 
     private void ApplyUpdateResult(UpdateCheckResult result, bool silent)
     {
-        if (result.IsUpdateAvailable)
+        if (result.IsUpdateAvailable && result.IsCompatibleAssetAvailable)
         {
-            _updateDownloadUrl = result.DirectDownloadUrl ?? result.ReleasePageUrl;
+            // Never fall back to the release page URL here — a direct asset was
+            // actually matched to this platform/architecture by ReleaseAssetSelector.
+            _updateDownloadUrl = result.DirectDownloadUrl;
+            var assetLabel = string.IsNullOrEmpty(result.AssetName) ? _updateDownloadUrl : result.AssetName;
             UpdateNotice = L.T($"⬆ Update verfügbar: v{result.LatestVersion}  (aktuell: v{result.CurrentVersion})",
                                 $"⬆ Update available: v{result.LatestVersion}  (current: v{result.CurrentVersion})");
             foreach (var cmd in _allCommands) cmd.RaiseCanExecuteChanged();
 
             if (!silent)
-                Log = L.T($"Neue Version gefunden: v{result.LatestVersion}\n\nJetzt herunterladen → {_updateDownloadUrl}",
-                          $"New version found: v{result.LatestVersion}\n\nDownload now → {_updateDownloadUrl}");
+                Log = L.T($"Neue Version gefunden: v{result.LatestVersion}\n\nPaket für {result.OperatingSystem}/{result.Architecture}: {assetLabel}\n\nJetzt herunterladen → {_updateDownloadUrl}",
+                          $"New version found: v{result.LatestVersion}\n\nPackage for {result.OperatingSystem}/{result.Architecture}: {assetLabel}\n\nDownload now → {_updateDownloadUrl}");
+        }
+        else if (result.IsUpdateAvailable && !result.IsCompatibleAssetAvailable)
+        {
+            // A newer version exists, but no asset matches this OS/architecture.
+            // Never offer a download for a different platform — open the release
+            // page instead so the user can decide manually.
+            _updateDownloadUrl = null;
+            UpdateNotice = L.T($"⬆ Update verfügbar: v{result.LatestVersion} (kein passendes Paket)",
+                                $"⬆ Update available: v{result.LatestVersion} (no compatible package)");
+            foreach (var cmd in _allCommands) cmd.RaiseCanExecuteChanged();
+
+            if (!silent)
+            {
+                Log = L.T(
+                    $"Neue Version v{result.LatestVersion} gefunden, aber für {result.OperatingSystem}/{result.Architecture} " +
+                    "ist in diesem Release derzeit kein passendes Paket verfügbar. Die Release-Seite wurde geöffnet.",
+                    $"New version v{result.LatestVersion} found, but no compatible package is currently available for " +
+                    $"{result.OperatingSystem}/{result.Architecture}. The release page was opened.");
+                TryOpenUrl(result.ReleasePageUrl);
+            }
         }
         else if (!silent)
         {
@@ -739,6 +855,16 @@ public sealed class MainWindowViewModel : ViewModelBase
                 ? L.T($"App ist aktuell (v{result.CurrentVersion}).", $"App is up to date (v{result.CurrentVersion}).")
                 : L.T($"Update-Check: {result.ErrorMessage}", $"Update check: {result.ErrorMessage}");
         }
+    }
+
+    private void TryOpenUrl(string? url)
+    {
+        if (string.IsNullOrWhiteSpace(url)) return;
+        try
+        {
+            Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
+        }
+        catch { /* best-effort only; the message already told the user the release URL */ }
     }
 
     private void OpenUpdateDownload()
@@ -765,6 +891,109 @@ public sealed class MainWindowViewModel : ViewModelBase
     private void RefreshInnoSetupAvailability()
     {
         ShowInstallInnoSetup = !_installerBuild.IsInnoSetupInstalled;
+    }
+
+    /// <summary>
+    /// Re-checks <c>.git/index.lock</c> for the currently selected project (filesystem-only,
+    /// no process spawned) and updates the visibility of the "Verwaiste Git-Sperre sicher
+    /// entfernen" button. Called on every environment check and after every write operation,
+    /// so the button appears/disappears on its own without requiring a restart.
+    /// </summary>
+    private void RefreshGitLockAvailability()
+    {
+        if (string.IsNullOrWhiteSpace(LocalPath))
+        {
+            CanRemoveOrphanedGitLock = false;
+            return;
+        }
+
+        var check = _git.CheckLockStatus(LocalPath);
+        CanRemoveOrphanedGitLock = check.Status == GitLockStatus.OrphanedRemovable;
+
+        // A detected lock or interrupted state must never be silently contradicted by
+        // an unrelated "Alle kritischen Checks bestanden. Push möglich." text further
+        // up (from SyncPreflightService/EnvironmentCheckService, neither of which know
+        // anything about .git/index.lock). An earlier fix appended a note to the *end*
+        // of Log, which turned out to be easy to miss in practice: the log view doesn't
+        // auto-scroll down, so the warning could sit below the visible area while the
+        // stale success line stayed on screen. Prepending a clear banner above
+        // everything else fixes that regardless of scroll position.
+        var banner = BuildLockBanner(check);
+        if (!string.IsNullOrEmpty(banner))
+            Log = banner + "\n\n———\n\n" + Log;
+    }
+
+    /// <summary>Builds a top-of-log banner describing a detected interrupted git
+    /// operation and/or index.lock state, or <c>string.Empty</c> if everything is clear.</summary>
+    private string BuildLockBanner(GitLockCheckResult check)
+    {
+        var parts = new List<string>();
+
+        if (check.InterruptedState is not null)
+            parts.Add("⚠ " + check.InterruptedState.Message);
+
+        switch (check.Status)
+        {
+            case GitLockStatus.OrphanedRemovable:
+                parts.Add(L.T(
+                    "🔓 Verwaiste Git-Sperre erkannt.\n\n" +
+                    "Der Repository-Zustand ist grundsätzlich gültig, jedoch wurde eine verwaiste " +
+                    ".git/index.lock-Datei gefunden.\n\n" +
+                    "Die Sperre kann über „Verwaiste Git-Sperre sicher entfernen“ entfernt werden. " +
+                    "Push/Pull sollte erst danach ausgeführt werden.",
+                    "🔓 Orphaned Git lock detected.\n\n" +
+                    "The repository state is otherwise valid, but an orphaned .git/index.lock file " +
+                    "was found.\n\n" +
+                    "The lock can be removed via \"Safely remove orphaned Git lock\". " +
+                    "Pull/Push should only be run afterwards."));
+                break;
+
+            case GitLockStatus.ActiveProcessDetected:
+                parts.Add(L.T(
+                    "⏳ Git-Sperre erkannt (.git/index.lock) – aktiver Git-Prozess möglich.\n\n" + check.Message,
+                    "⏳ Git lock detected (.git/index.lock) – an active git process may be involved.\n\n" + check.Message));
+                break;
+
+            case GitLockStatus.RepositoryInvalidAfterRemoval:
+            case GitLockStatus.RemovalFailed:
+                parts.Add("⚠ " + check.Message);
+                break;
+        }
+
+        return string.Join("\n\n", parts);
+    }
+
+    /// <summary>
+    /// Manual, user-triggered removal of a verified-orphaned <c>.git/index.lock</c>.
+    /// Re-verifies immediately before deleting (the check-then-act race is closed inside
+    /// GitLockGuard) and refuses if an active git process is detected or the lock no
+    /// longer looks orphaned. Serializes against any other write operation on this repo.
+    /// </summary>
+    private async Task RemoveOrphanedGitLockAsync()
+    {
+        await Busy(async () =>
+        {
+            if (string.IsNullOrWhiteSpace(LocalPath))
+            {
+                Log = L.T("Kein lokaler Ordner ausgewählt.", "No local folder selected.");
+                return;
+            }
+
+            var result = await _git.RemoveOrphanedGitLockAsync(LocalPath);
+            Log = result.Status switch
+            {
+                GitLockStatus.RemovedSuccessfully =>
+                    L.T("✅ ", "✅ ") + result.Message,
+                GitLockStatus.ActiveProcessDetected =>
+                    L.T("⏳ ", "⏳ ") + result.Message,
+                GitLockStatus.RepositoryInvalidAfterRemoval =>
+                    L.T("⚠️ ", "⚠️ ") + result.Message,
+                _ =>
+                    L.T("❌ ", "❌ ") + result.Message,
+            };
+
+            RefreshGitLockAvailability();
+        });
     }
 
     /// <summary>

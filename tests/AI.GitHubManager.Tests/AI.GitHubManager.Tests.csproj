@@ -16,5 +16,6 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\AI.GitHubManager.Core\AI.GitHubManager.Core.csproj" />
     <ProjectReference Include="..\..\src\AI.GitHubManager.Data\AI.GitHubManager.Data.csproj" />
+    <ProjectReference Include="..\..\src\AI.GitHubManager.App\AI.GitHubManager.App.csproj" />
   </ItemGroup>
 </Project>

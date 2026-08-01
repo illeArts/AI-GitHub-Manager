@@ -11,6 +11,10 @@ namespace AI.GitHubManager.Core.Update;
 ///
 /// Configure the repository owner/name via the constructor or leave the
 /// defaults pointing to the canonical repo.
+///
+/// Asset selection is platform-aware: the service never returns a download
+/// link for a different operating system/architecture than the one it is
+/// currently running on (see <see cref="ReleaseAssetSelector"/>).
 /// </summary>
 public sealed class UpdateCheckService
 {
@@ -18,6 +22,7 @@ public sealed class UpdateCheckService
 
     /// <summary>GitHub owner/repo slug, e.g. "illeArts/AI-GitHub-Manager".</summary>
     private readonly string _repoSlug;
+    private readonly PlatformDescriptor _platform;
 
     private static readonly TimeSpan RequestTimeout = TimeSpan.FromSeconds(10);
 
@@ -37,11 +42,18 @@ public sealed class UpdateCheckService
     public static readonly string CurrentVersion =
         Assembly.GetEntryAssembly()?.GetName().Version is { } v
             ? $"{v.Major}.{v.Minor}.{v.Build}"
-            : "1.6.1";
+            : "1.6.2";
 
     public UpdateCheckService(string repoSlug = "illeArts/AI-GitHub-Manager")
+        : this(repoSlug, PlatformDescriptor.Current)
+    {
+    }
+
+    /// <summary>Test seam: inject an explicit platform instead of detecting the real one.</summary>
+    public UpdateCheckService(string repoSlug, PlatformDescriptor platform)
     {
         _repoSlug = repoSlug;
+        _platform = platform;
     }
 
     /// <summary>
@@ -85,28 +97,31 @@ public sealed class UpdateCheckService
             if (!IsNewerVersion(CurrentVersion, latestVersion))
                 return UpdateCheckResult.UpToDate(CurrentVersion);
 
-            // Find Windows installer asset if available
-            string? downloadUrl = null;
-            if (root.TryGetProperty("assets", out var assets))
+            var assets = new List<ReleaseAsset>();
+            if (root.TryGetProperty("assets", out var assetsElement))
             {
-                foreach (var asset in assets.EnumerateArray())
+                foreach (var asset in assetsElement.EnumerateArray())
                 {
                     var name = asset.TryGetProperty("name", out var n) ? n.GetString() ?? "" : "";
-                    if (name.EndsWith("win-x64.exe", StringComparison.OrdinalIgnoreCase) ||
-                        name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
-                    {
-                        downloadUrl = asset.TryGetProperty("browser_download_url", out var u)
-                            ? u.GetString()
-                            : null;
-                        break;
-                    }
+                    var downloadUrl = asset.TryGetProperty("browser_download_url", out var u) ? u.GetString() ?? "" : "";
+                    if (!string.IsNullOrWhiteSpace(name) && !string.IsNullOrWhiteSpace(downloadUrl))
+                        assets.Add(new ReleaseAsset(name, downloadUrl));
                 }
             }
 
-            // Fallback to release page when no direct asset found
-            downloadUrl ??= releaseUrl;
+            var selected = ReleaseAssetSelector.SelectFor(_platform, assets);
 
-            return UpdateCheckResult.NewVersion(CurrentVersion, latestVersion, releaseUrl, downloadUrl);
+            if (selected is null)
+            {
+                return UpdateCheckResult.NoCompatibleAsset(
+                    CurrentVersion, latestVersion, releaseUrl,
+                    _platform.OperatingSystem, _platform.Architecture);
+            }
+
+            return UpdateCheckResult.NewVersion(
+                CurrentVersion, latestVersion, releaseUrl, selected.DownloadUrl,
+                _platform.OperatingSystem, _platform.Architecture, selected.Name,
+                isCompatibleAssetAvailable: true);
         }
         catch (OperationCanceledException)
         {

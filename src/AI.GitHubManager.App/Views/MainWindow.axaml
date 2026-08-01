@@ -209,6 +209,16 @@
                            TextWrapping="Wrap"
                            TextAlignment="Center" />
               </Button>
+              <Button Command="{Binding RemoveOrphanedGitLockCommand}"
+                      IsVisible="{Binding CanRemoveOrphanedGitLock}"
+                      Background="#5a3a1a" Foreground="White"
+                      HorizontalContentAlignment="Center"
+                      HorizontalAlignment="Stretch"
+                      Margin="0,0,0,8">
+                <TextBlock Text="{Binding Strings.RemoveOrphanedGitLockBtn}"
+                           TextWrapping="Wrap"
+                           TextAlignment="Center" />
+              </Button>
               <Button Content="{Binding Strings.ExportDiagnostics}"
                       Command="{Binding ExportDiagnosticsCommand}"    Margin="0,0,0,8" HorizontalAlignment="Stretch" />
               <Button Content="{Binding Strings.SaveProject}"

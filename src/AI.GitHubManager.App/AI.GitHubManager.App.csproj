@@ -5,10 +5,10 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>AI.GitHubManager.App</AssemblyName>
     <RootNamespace>AI.GitHubManager.App</RootNamespace>
-    <Version>1.6.1</Version>
-    <AssemblyVersion>1.6.1.0</AssemblyVersion>
-    <FileVersion>1.6.1.0</FileVersion>
-    <InformationalVersion>1.6.1</InformationalVersion>
+    <Version>1.6.2</Version>
+    <AssemblyVersion>1.6.2.0</AssemblyVersion>
+    <FileVersion>1.6.2.0</FileVersion>
+    <InformationalVersion>1.6.2</InformationalVersion>
   </PropertyGroup>
 
   <!-- Windows: suppress console window, add manifest, COM support, and .ico -->
@@ -29,8 +29,8 @@
     <CFBundleName>AI GitHub Manager</CFBundleName>
     <CFBundleDisplayName>AI GitHub Manager</CFBundleDisplayName>
     <CFBundleIdentifier>com.illearts.AIGitHubManager</CFBundleIdentifier>
-    <CFBundleVersion>1.6.1</CFBundleVersion>
-    <CFBundleShortVersionString>1.6.1</CFBundleShortVersionString>
+    <CFBundleVersion>1.6.2</CFBundleVersion>
+    <CFBundleShortVersionString>1.6.2</CFBundleShortVersionString>
     <NSHumanReadableCopyright>© 2026 illeArts</NSHumanReadableCopyright>
   </PropertyGroup>
 
@@ -49,5 +49,11 @@
   <ItemGroup>
     <ProjectReference Include="..\AI.GitHubManager.Core\AI.GitHubManager.Core.csproj" />
     <ProjectReference Include="..\AI.GitHubManager.Data\AI.GitHubManager.Data.csproj" />
+  </ItemGroup>
+
+  <!-- Allows the test project to use the internal GitService-injecting constructor
+       on MainWindowViewModel (test/DI seam for deterministic lock-detection tests). -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="AI.GitHubManager.Tests" />
   </ItemGroup>
 </Project>

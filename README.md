@@ -1,6 +1,6 @@
 # AI GitHub Manager
 
-[![Version](https://img.shields.io/badge/version-1.6.1-blue)](#aktueller-funktionsstand)
+[![Version](https://img.shields.io/badge/version-1.6.2-blue)](#aktueller-funktionsstand)
 [![Platforms](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey)](#voraussetzungen)
 [![License](https://img.shields.io/badge/license-proprietary%20community--use-orange)](LICENSE)
 
@@ -187,7 +187,7 @@ gh auth setup-git
 
 ## Aktueller Funktionsstand
 
-Aktuelle Projektversion: **1.6.1**
+Aktuelle Projektversion: **1.6.2**
 
 Das vollständige Benutzerhandbuch (Schnellstart, alle Befehle, Fehlerbehebung, Sicherheit) ist im
 Menü **Hilfe → Hilfe / Befehle** der App verfügbar und existiert auf Deutsch und Englisch.
@@ -201,6 +201,39 @@ Noch sinnvoll zu verifizieren beziehungsweise auszubauen:
 - Regressionstests bei neuen Randfällen erweitern.
 
 ## Änderungsprotokoll (Changelog)
+
+### Version 1.6.2 — Plattformspezifische Updates & sicherer Pull
+
+- **Update-Check ist jetzt plattformbewusst**: Statt immer nach einer Windows-`.exe` zu suchen, wählt
+  die App anhand der tatsächlichen Betriebssystem-/Architekturerkennung (`OperatingSystem.IsWindows()`
+  /`IsMacOS()`/`IsLinux()`, `RuntimeInformation.ProcessArchitecture`) das passende Release-Asset:
+  Windows x64, macOS Intel, macOS Apple Silicon oder Linux x64. Auf macOS/Linux wird nie mehr ein
+  Windows-Installer angeboten. Gibt es für die aktuelle Plattform kein passendes Paket, wird kein
+  falscher Download gestartet — stattdessen öffnet die App die Release-Seite und erklärt das klar.
+  SHA256-Prüfsummendateien werden nie als Programm-Asset ausgewählt.
+- **Sicherer Pull mit automatischer Schutzsicherung**: Ein Pull bei vorhandenen lokalen Änderungen
+  bricht nicht mehr nur mit einer rohen Git-Fehlermeldung ab. Stattdessen sichert die App lokale
+  Änderungen (inkl. neuer Dateien) automatisch per `git stash push --include-untracked` mit eindeutiger
+  Kennung, führt `git pull --ff-only` aus (nie einen automatischen Merge/Rebase) und stellt die
+  Sicherung danach kontrolliert per `git stash apply` wieder her. Schlägt der Pull fehl, wird der
+  ursprüngliche Zustand vollständig wiederhergestellt. Erzeugt die Wiederherstellung Konflikte, stoppt
+  die App fail-closed, behält die Sicherung und zeigt die betroffenen Dateien — es wird nie automatisch
+  etwas verworfen oder ein bestehender, eigener Stash des Nutzers verändert. Neue Einstellung: „Sicherer
+  Pull mit automatischer Schutzsicherung“ (Standard: an) versus „Bei lokalen Änderungen nur warnen und
+  Pull abbrechen“.
+- **Sichere Behandlung von `.git/index.lock`**: Reale Fehlermeldung, die dieses Update behebt:
+  `error: Unable to create '.git/index.lock': File exists. Another git process seems to be running
+  in this repository, or the lock file may be stale.` Pro Projektordner läuft jetzt nie mehr als eine
+  schreibende Git-Aktion gleichzeitig (Pull, Commit + Push, Build/Test/Push) — intern über eine
+  `SemaphoreSlim`-Sperre je normalisiertem Repository-Pfad. Vor jeder schreibenden Aktion wird zusätzlich
+  geprüft, ob ein aktiver Git-Prozess erkannt werden kann (unter Windows per WMI-Abfrage, mit sicherem
+  Fallback auf „irgendein Git-Prozess läuft“, falls das nicht möglich ist); erst wenn kein aktiver Prozess
+  erkannt wurde und die Sperrdatei alt genug ist, gilt sie als verwaist und wird entfernt — direkt vor dem
+  Löschen wird das erneut geprüft. Unterbrochene Zustände (`MERGE_HEAD`, `CHERRY_PICK_HEAD`, `REBASE_HEAD`/
+  laufender Rebase, `BISECT_LOG`) werden strukturiert erkannt und **nie** automatisch bereinigt. Nach dem
+  Entfernen einer verwaisten Sperre prüft die App `git status`, bevor irgendetwas fortgesetzt wird. Neuer,
+  nur bei Bedarf sichtbarer Button **„Verwaiste Git-Sperre sicher entfernen“**.
+- Siehe RELEASE_NOTES_v1.6.2.md für Details.
 
 ### Version 1.6.1 — Vorsorglicher Inno-Setup-Hinweis
 

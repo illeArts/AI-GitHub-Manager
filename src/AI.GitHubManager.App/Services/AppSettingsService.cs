@@ -14,6 +14,15 @@ public sealed class AppSettingsService
 
     public string Language { get; set; } = "de"; // "de" | "en"
 
+    /// <summary>
+    /// "Sicherer Pull mit automatischer Schutzsicherung" — default enabled.
+    /// When true, a Pull with local changes present automatically creates a
+    /// git stash backup, pulls with --ff-only, and restores the backup.
+    /// When false, a Pull with local changes present is aborted with a warning
+    /// instead (no automatic stash/backup is created).
+    /// </summary>
+    public bool SafePullEnabled { get; set; } = true;
+
     // ── Persistence ───────────────────────────────────────────────────────────
 
     public static AppSettingsService Load()
