@@ -14,7 +14,7 @@ permissions:
 
 concurrency:
   group: release-v1.6.1
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 env:
   VERSION: 1.6.1
@@ -66,7 +66,7 @@ jobs:
             rid: linux-x64
             archive: tar
           - name: macos-x64
-            os: macos-13
+            os: macos-15-intel
             rid: osx-x64
             archive: zip
           - name: macos-arm64
