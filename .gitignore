@@ -1,13 +1,25 @@
+# Build output
 bin/
 obj/
 dist/
 publish/
+artifacts/
+TestResults/
+coverage/
+*.coverage
+*.coveragexml
+
+# IDE and editor state
 .vs/
 .idea/
+.vscode/
 *.user
 *.suo
+*.userosscache
+*.sln.docstates
+*.swp
 
-# macOS metadata and local system folders
+# Operating-system metadata
 .DS_Store
 ._*
 .localized
@@ -18,19 +30,68 @@ publish/
 .TemporaryItems/
 .VolumeIcon.icns
 Icon?
+Thumbs.db
+ehthumbs.db
+Desktop.ini
 
-# Ad-hoc scripts & temp files (should never land in the repo)
-*.bat
-*.cmd
-*.ps1
+# Logs, temporary files and backups
 *.tmp
+*.temp
 *.bak
 *.orig
 *.log
-*.swp
+*.dmp
+*.stackdump
+~$*
 
-# Scratch / HTTP-response dump files (no extension, short names)
+# Environment files and local configuration
+.env
+.env.*
+!.env.example
+appsettings.*.local.json
+appsettings.Local.json
+secrets.json
+local.settings.json
+
+# Credentials, tokens, keys and certificates
+*.pfx
+*.p12
+*.pem
+*.key
+*.jks
+*.keystore
+*.mobileprovision
+*.cer
+*.crt
+*.der
+*.kdbx
+credentials*
+credential*
+token*
+secret*
+!SECURITY.md
+
+# NuGet and signing material
+*.nupkg
+*.snupkg
+.nuget/
+packages/
+*.pubxml
+*.pubxml.user
+
+# Ad-hoc scripts and generated helper files
+*.bat
+*.cmd
+*.ps1
+cleanup_git.*
+do_commit.*
+run_git_commit.*
+git_commit_extension.*
+
+# Scratch and HTTP response dumps
 400
+401
+403
 404
 500
 valid
@@ -40,20 +101,19 @@ output
 temp
 test
 
-# Generated reports / local HTML exports at repo root
-*.html
-*.htm
+# Generated reports and local HTML exports at repository root
+/*.html
+/*.htm
+/AAIA_Statusbericht.html
 
-# Cleanup helpers
-cleanup_git.*
- 
-# Temporaere Garbage-Files 
-400 
-404 
-valid 
-AAIA_Statusbericht.html 
-do_commit.bat 
-run_git_commit.bat 
-git_commit_extension.ps1 
-cleanup_git.bat 
-cleanup_git.ps1 
+# Local exports and archives
+exports/
+backup/
+backups/
+*.zip
+*.7z
+*.tar
+*.tar.gz
+
+# Do not rely on this file as a security boundary.
+# Secrets committed in the past remain in Git history and must be revoked and removed separately.
