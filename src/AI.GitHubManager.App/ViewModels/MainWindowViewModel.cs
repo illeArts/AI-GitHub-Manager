@@ -28,7 +28,9 @@ public sealed class MainWindowViewModel : ViewModelBase
     private readonly ProjectBuildService _projectBuild;
     private readonly InstallerBuildService _installerBuild;
     private readonly UpdateCheckService _updateCheck = new();
+    private readonly SafePullService _safePull;
     private readonly JsonProjectStore _store = new();
+    private readonly AppSettingsService _settings = AppSettingsService.Load();
 
     private ManagedProject? _selectedProject;
     private string _localPath = string.Empty;
@@ -55,6 +57,7 @@ public sealed class MainWindowViewModel : ViewModelBase
         _authDiagnostics = new AuthenticationDiagnosticService(_gh);
         _projectBuild    = new ProjectBuildService(_runner);
         _installerBuild  = new InstallerBuildService(_runner);
+        _safePull        = new SafePullService(_runner);
 
         Projects = new ObservableCollection<ManagedProject>();
 
@@ -287,12 +290,57 @@ public sealed class MainWindowViewModel : ViewModelBase
     {
         await Busy(async () =>
         {
-            var result = await _git.PullAsync(LocalPath, SelectedProject?.DefaultBranch, SelectedProject?.RemoteUrl);
-            Log = result.Success
-                ? result.CombinedOutput
-                : EnrichWithErrorHint(result.CombinedOutput);
+            if (!_settings.SafePullEnabled)
+            {
+                // Legacy path retained only for completeness; the default and
+                // recommended path is the safe pull below.
+                var legacyResult = await _git.PullAsync(LocalPath, SelectedProject?.DefaultBranch, SelectedProject?.RemoteUrl);
+                Log = legacyResult.Success
+                    ? legacyResult.CombinedOutput
+                    : EnrichWithErrorHint(legacyResult.CombinedOutput);
+                return;
+            }
+
+            var result = await _safePull.PullAsync(LocalPath, warnOnlyOnLocalChanges: false);
+            Log = FormatSafePullResult(result);
         });
     }
+
+    /// <summary>Renders a SafePullResult into a user-facing log message.
+    /// Every state is handled explicitly — nothing falls through to raw console text.</summary>
+    private string FormatSafePullResult(SafePullResult result)
+    {
+        return result.State switch
+        {
+            SafePullState.CleanPullSucceeded =>
+                result.PullOutput ?? result.Message,
+
+            SafePullState.PullSucceededAndChangesRestored =>
+                result.Message + "\n\n" + (result.PullOutput ?? string.Empty),
+
+            SafePullState.PullFailedAndRestored =>
+                EnrichWithErrorHint(result.Message),
+
+            SafePullState.RestoreConflict =>
+                result.Message + "\n\n" +
+                L.T("Betroffene Dateien:\n", "Affected files:\n") +
+                string.Join("\n", result.ConflictFiles) +
+                "\n\n" + L.T(
+                    "Aktionen: Konflikte anzeigen, Sicherung behalten, oder Wiederherstellung erneut versuchen. " +
+                    "Es wurden keine lokalen Änderungen verworfen.",
+                    "Actions: view conflicts, keep the backup, or retry the restore. " +
+                    "No local changes were discarded."),
+
+            SafePullState.BackupCreationFailed => result.Message,
+            SafePullState.RestoreFailed        => result.Message,
+            SafePullState.AbortedDueToLocalChanges =>
+                result.Message + "\n\n" + string.Join("\n", result.ConflictFiles),
+            SafePullState.FastForwardNotPossible => result.Message,
+            SafePullState.NotARepository         => result.Message,
+            _ => result.Message,
+        };
+    }
+
 
     private async Task CommitPushAsync()
     {
@@ -721,16 +769,39 @@ public sealed class MainWindowViewModel : ViewModelBase
 
     private void ApplyUpdateResult(UpdateCheckResult result, bool silent)
     {
-        if (result.IsUpdateAvailable)
+        if (result.IsUpdateAvailable && result.IsCompatibleAssetAvailable)
         {
-            _updateDownloadUrl = result.DirectDownloadUrl ?? result.ReleasePageUrl;
+            // Never fall back to the release page URL here — a direct asset was
+            // actually matched to this platform/architecture by ReleaseAssetSelector.
+            _updateDownloadUrl = result.DirectDownloadUrl;
+            var assetLabel = string.IsNullOrEmpty(result.AssetName) ? _updateDownloadUrl : result.AssetName;
             UpdateNotice = L.T($"⬆ Update verfügbar: v{result.LatestVersion}  (aktuell: v{result.CurrentVersion})",
                                 $"⬆ Update available: v{result.LatestVersion}  (current: v{result.CurrentVersion})");
             foreach (var cmd in _allCommands) cmd.RaiseCanExecuteChanged();
 
             if (!silent)
-                Log = L.T($"Neue Version gefunden: v{result.LatestVersion}\n\nJetzt herunterladen → {_updateDownloadUrl}",
-                          $"New version found: v{result.LatestVersion}\n\nDownload now → {_updateDownloadUrl}");
+                Log = L.T($"Neue Version gefunden: v{result.LatestVersion}\n\nPaket für {result.OperatingSystem}/{result.Architecture}: {assetLabel}\n\nJetzt herunterladen → {_updateDownloadUrl}",
+                          $"New version found: v{result.LatestVersion}\n\nPackage for {result.OperatingSystem}/{result.Architecture}: {assetLabel}\n\nDownload now → {_updateDownloadUrl}");
+        }
+        else if (result.IsUpdateAvailable && !result.IsCompatibleAssetAvailable)
+        {
+            // A newer version exists, but no asset matches this OS/architecture.
+            // Never offer a download for a different platform — open the release
+            // page instead so the user can decide manually.
+            _updateDownloadUrl = null;
+            UpdateNotice = L.T($"⬆ Update verfügbar: v{result.LatestVersion} (kein passendes Paket)",
+                                $"⬆ Update available: v{result.LatestVersion} (no compatible package)");
+            foreach (var cmd in _allCommands) cmd.RaiseCanExecuteChanged();
+
+            if (!silent)
+            {
+                Log = L.T(
+                    $"Neue Version v{result.LatestVersion} gefunden, aber für {result.OperatingSystem}/{result.Architecture} " +
+                    "ist in diesem Release derzeit kein passendes Paket verfügbar. Die Release-Seite wurde geöffnet.",
+                    $"New version v{result.LatestVersion} found, but no compatible package is currently available for " +
+                    $"{result.OperatingSystem}/{result.Architecture}. The release page was opened.");
+                TryOpenUrl(result.ReleasePageUrl);
+            }
         }
         else if (!silent)
         {
@@ -739,6 +810,16 @@ public sealed class MainWindowViewModel : ViewModelBase
                 ? L.T($"App ist aktuell (v{result.CurrentVersion}).", $"App is up to date (v{result.CurrentVersion}).")
                 : L.T($"Update-Check: {result.ErrorMessage}", $"Update check: {result.ErrorMessage}");
         }
+    }
+
+    private void TryOpenUrl(string? url)
+    {
+        if (string.IsNullOrWhiteSpace(url)) return;
+        try
+        {
+            Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
+        }
+        catch { /* best-effort only; the message already told the user the release URL */ }
     }
 
     private void OpenUpdateDownload()

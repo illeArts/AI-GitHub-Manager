@@ -38,8 +38,15 @@ public partial class HelpWindow : Window
         CmdHeader.Text = L.T("Befehle", "Commands");
         CmdStatus.Text = L.T("Zeigt Branch, Remote-URL und alle geänderten Dateien.",
                              "Shows branch, remote URL, and all changed files.");
-        CmdPull.Text   = L.T("Pull — Fast-Forward wenn möglich, sonst automatisch Rebase.",
-                             "Pull — fast-forward when possible, otherwise auto-rebase.");
+        CmdPull.Text   = L.T(
+            "Pull — sicherer Pull (Standard): lokale Änderungen werden vor dem Pull automatisch per " +
+            "Git-Stash gesichert, danach nur Fast-Forward (kein automatischer Merge/Rebase), anschließend " +
+            "wird die Sicherung wiederhergestellt. Bei Konflikten oder Fehlern bleibt die Sicherung erhalten " +
+            "und es wird nichts verworfen. In den Einstellungen umschaltbar auf \"nur warnen und abbrechen\".",
+            "Pull — safe pull (default): local changes are automatically backed up via a git stash before " +
+            "pulling, then only a fast-forward pull runs (never an automatic merge/rebase), and the backup " +
+            "is restored afterwards. On conflicts or failures the backup is kept and nothing is discarded. " +
+            "Can be switched to \"warn and abort only\" in Settings.");
         CmdCommit.Text = L.T("Staged alle Änderungen, commitet mit deiner Nachricht und pusht zum Remote.",
                              "Stages all changes, commits with your message, and pushes to remote.");
         CmdImportLabel.Text = L.T("Von GitHub importieren", "Import from GitHub");
@@ -111,8 +118,11 @@ public partial class HelpWindow : Window
                        "\"Authentication failed\"  →  Click \"GitHub Login\".");
         Ts3.Text = L.T("\"refusing to allow ... workflow\"  →  \"GitHub Rechte: repo + workflow\" klicken.",
                        "\"refusing to allow ... workflow\"  →  Click \"GitHub Rechte: repo + workflow\".");
-        Ts4.Text = L.T("\"non-fast-forward\" / divergierte Branches  →  Pull erkennt das automatisch und führt Rebase durch.",
-                       "\"non-fast-forward\" / diverged branches  →  Pull detects this automatically and rebases.");
+        Ts4.Text = L.T(
+            "\"non-fast-forward\" / divergierte Branches  →  Sicherer Pull führt bewusst KEINEN automatischen " +
+            "Merge/Rebase aus; Fast-Forward ist dann nicht möglich, der Pull wird abgebrochen und nichts verändert.",
+            "\"non-fast-forward\" / diverged branches  →  Safe pull deliberately performs NO automatic merge/rebase; " +
+            "fast-forward isn't possible, the pull is aborted and nothing is changed.");
         Ts5.Text = L.T("\"Keine Änderungen – Commit übersprungen\"  →  Keine Änderungen erkannt, Push wurde trotzdem ausgeführt.",
                        "\"Keine Änderungen – Commit übersprungen\"  →  No changes detected, push was still executed.");
         Ts6.Text = L.T(

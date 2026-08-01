@@ -1,7 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Class="AI.GitHubManager.App.Views.SettingsWindow"
-        Width="400" Height="260"
+        Width="440" Height="380"
         CanResize="False"
         WindowStartupLocation="CenterOwner"
         Icon="avares://AI.GitHubManager.App/Assets/logo.png">
@@ -36,6 +36,25 @@
         </StackPanel>
         <TextBlock x:Name="LangNote"
                    Foreground="#445566" FontSize="11"
+                   Margin="0,2,0,0" />
+      </StackPanel>
+
+      <!-- Safe pull -->
+      <StackPanel Spacing="8">
+        <TextBlock x:Name="SafePullLabel"
+                   Foreground="#8899aa" FontSize="13" />
+        <StackPanel Spacing="6">
+          <RadioButton x:Name="SafePullOn"
+                       GroupName="SafePull"
+                       Foreground="White"
+                       IsChecked="True" />
+          <RadioButton x:Name="SafePullWarnOnly"
+                       GroupName="SafePull"
+                       Foreground="White" />
+        </StackPanel>
+        <TextBlock x:Name="SafePullNote"
+                   Foreground="#445566" FontSize="11"
+                   TextWrapping="Wrap"
                    Margin="0,2,0,0" />
       </StackPanel>
 
