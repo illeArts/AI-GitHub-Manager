@@ -107,6 +107,14 @@ AI.GitHubManager
 
 AI GitHub Manager soll kein AAIA-only Tool sein. Es ist ein allgemeiner GitHub-Manager für alle aktuellen und zukünftigen Projekte.
 
+## Version 1.5.1 — Build-Fix für die Avalonia-Oberfläche
+
+Der Release-Build von 1.5.0 schlug mit `AVLN2000: Button besitzt keine Eigenschaft TextWrapping`
+fehl (`MainWindow.axaml`). `TextWrapping` ist keine Button-Eigenschaft in Avalonia — beide neuen
+Buttons („Ungültigen Token entfernen und Anmeldung reparieren“, „Remote sicher bereinigen“)
+verwenden jetzt korrekt einen `TextBlock` als Button-Inhalt. Keine funktionalen Änderungen
+gegenüber 1.5.0, reiner Build-Fix.
+
 ## Version 1.5.0 — Selbstdiagnose & Selbstreparatur der GitHub-Authentifizierung
 
 Referenzfall: Ein ungültiger `GITHUB_TOKEN`/`GH_TOKEN` in der Windows-Umgebung überschreibt eine
@@ -240,4 +248,4 @@ Der Update-Check läuft im Hintergrund, blockiert die App nicht und schlägt sti
 
 ### Installer / Update
 
-Der Windows-Installer erkennt eine vorhandene 1.x-Installation automatisch und aktualisiert sie in-place — kein manuelles Deinstallieren nötig. Einfach `AI_GitHub_Manager_Setup_1.3.0_win-x64.exe` ausführen.
+Der Windows-Installer erkennt eine vorhandene 1.x-Installation automatisch und aktualisiert sie in-place — kein manuelles Deinstallieren nötig. Einfach das aktuelle `AI_GitHub_Manager_Setup_<Version>_win-x64.exe` aus `dist\` ausführen.
