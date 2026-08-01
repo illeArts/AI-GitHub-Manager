@@ -920,7 +920,18 @@ public sealed class MainWindowViewModel : ViewModelBase
         // everything else fixes that regardless of scroll position.
         var banner = BuildLockBanner(check);
         if (!string.IsNullOrEmpty(banner))
+        {
+            // With a banner now shown above it, SyncPreflightService's unconditional
+            // "Alle kritischen Checks bestanden. Push möglich." reads as a direct
+            // contradiction even though the banner already relativizes it. Soften that
+            // one specific line (a plain, no-op string replace for any other log shape,
+            // e.g. the no-project EnvironmentCheckService branch, which never contains it).
+            Log = Log.Replace(
+                "→ Alle kritischen Checks bestanden. Push möglich.",
+                "✓ Basisprüfung erfolgreich. Zusätzliche Warnungen siehe oben.");
+
             Log = banner + "\n\n———\n\n" + Log;
+        }
     }
 
     /// <summary>Builds a top-of-log banner describing a detected interrupted git
