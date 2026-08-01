@@ -1,5 +1,9 @@
 # AI GitHub Manager
 
+<p align="center">
+  <img src="Logo/AI-GitHub_Manager.png" alt="AI GitHub Manager Logo" width="220" />
+</p>
+
 AI GitHub Manager ist eine plattformübergreifende Avalonia/.NET-App für Windows, macOS und Linux. Ziel ist ein einfaches, sicheres Werkzeug für GitHub-Projekte: anmelden, Repository auswählen, lokalen Ordner verknüpfen und Pull/Commit/Push per Button ausführen.
 
 ## Warum dieses Projekt existiert
