@@ -2,6 +2,24 @@
 
 AI GitHub Manager 1.6.1 erweitert die Anwendung um eine belastbare Selbstdiagnose und Selbstreparatur für typische GitHub-, Token-, Remote-, Build- und Installer-Probleme.
 
+## Empfohlener Download
+
+### Windows 64-Bit
+
+Für die normale Installation verwenden:
+
+`AI_GitHub_Manager_Setup_1.6.1_win-x64.exe`
+
+Das portable ZIP-Paket bleibt zusätzlich verfügbar und benötigt keine Installation.
+
+Der Windows-Installer ist derzeit nicht mit einem kostenpflichtigen Code-Signing-Zertifikat signiert. Windows SmartScreen kann deshalb beim ersten Start einen Warnhinweis anzeigen. Die zugehörige `.sha256`-Datei ermöglicht die Prüfung, ob der Download unverändert ist.
+
+### macOS und Linux
+
+- macOS Intel: `AI-GitHub-Manager-v1.6.1-macos-x64.zip`
+- macOS Apple Silicon: `AI-GitHub-Manager-v1.6.1-macos-arm64.zip`
+- Linux x64: `AI-GitHub-Manager-v1.6.1-linux-x64.tar.gz`
+
 ## Neu in 1.6.1
 
 - Vorsorgliche Erkennung, ob Inno Setup 6 unter Windows installiert ist.
@@ -31,16 +49,16 @@ AI GitHub Manager 1.6.1 erweitert die Anwendung um eine belastbare Selbstdiagnos
 - Konflikte und unsichere Zustände blockieren schreibende Aktionen.
 - Clean Export verändert den Quellordner nicht.
 
-## Downloads
+## Downloads und Integrität
 
 Das Release veröffentlicht reproduzierbar erzeugte Pakete für:
 
-- Windows x64
+- Windows x64 als Installer und portables ZIP
 - macOS x64
 - macOS Apple Silicon (arm64)
 - Linux x64
 
-Die Pakete werden durch GitHub Actions direkt aus dem mit `v1.6.1` gekennzeichneten Quellstand erzeugt.
+Alle veröffentlichten Programmdateien erhalten eine separate SHA-256-Prüfsumme. Die Pakete werden durch GitHub Actions direkt aus dem veröffentlichten Quellstand erzeugt.
 
 ## Voraussetzungen
 
