@@ -45,4 +45,10 @@ public enum SafePullState
 
     /// <summary>The path is not a valid git repository / other precondition failed.</summary>
     NotARepository,
+
+    /// <summary>Blocked before anything was touched: either an unrelated interrupted
+    /// git operation (merge/rebase/cherry-pick/bisect) was detected, an active git
+    /// process appears to hold <c>.git/index.lock</c>, or a verified-orphaned lock
+    /// could not be safely removed. Nothing was stashed, pulled, or restored.</summary>
+    WriteBlockedByLockGuard,
 }

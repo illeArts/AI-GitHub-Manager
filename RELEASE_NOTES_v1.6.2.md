@@ -1,6 +1,6 @@
 # AI GitHub Manager v1.6.2
 
-AI GitHub Manager 1.6.2 behebt zwei Produktivfehler (siehe Issue #4): plattformfremde Update-Downloads und Datenverlust-Risiko bei Pull mit lokalen Änderungen.
+AI GitHub Manager 1.6.2 behebt drei Produktivfehler: plattformfremde Update-Downloads, Datenverlust-Risiko bei Pull mit lokalen Änderungen (Issue #4), und einen real reproduzierten `index.lock`-Fehler bei parallelen Git-Operationen.
 
 ## Empfohlener Download
 
@@ -76,6 +76,36 @@ forderte nur auf, selbst zu committen oder zu stashen.
   `PullFailedAndRestored`, `PullSucceededAndChangesRestored`, `RestoreConflict`,
   `BackupCreationFailed`, `RestoreFailed`, `FastForwardNotPossible`) werden strukturiert an die
   Oberfläche gemeldet statt nur als Konsolentext.
+
+### 3. Sichere Behandlung von `.git/index.lock`
+
+Real reproduzierter Fehler, den dieses Update behebt:
+
+```text
+error: Unable to create '.git/index.lock': File exists.
+Another git process seems to be running in this repository, or the lock file may be stale.
+```
+
+- **Serialisierung pro Repository:** Pro normalisiertem Repository-Pfad läuft nie mehr als eine
+  schreibende Git-Aktion gleichzeitig (Pull, Commit + Push, Build/Test/Push) — intern über eine
+  `SemaphoreSlim`-Sperre (`RepositoryLockService`), gemeinsam genutzt von allen internen Git-Diensten.
+- **`.git/index.lock` wird niemals blind gelöscht.** Vor jeder schreibenden Aktion prüft
+  `GitLockGuard`, ob noch ein aktiver Git-Prozess läuft (unter Windows per WMI-Abfrage auf
+  `Win32_Process.CommandLine`, mit sicherem Fallback auf „irgendein Git-Prozess läuft“, falls die
+  WMI-Abfrage fehlschlägt oder nicht eindeutig einem Repository zugeordnet werden kann). Läuft ein
+  Prozess, bricht die Aktion verständlich ab — die Sperre bleibt unangetastet.
+- Nur wenn kein aktiver Prozess erkannt wurde **und** die Sperrdatei alt genug ist, gilt sie als
+  verwaist. Direkt vor dem Löschen wird das erneut geprüft (schließt die Race zwischen Prüfung und
+  Aktion). Nach dem Entfernen läuft `git status` — nur bei gültigem Ergebnis gilt die Reparatur als
+  erfolgreich.
+- **Unterbrochene Git-Zustände werden strukturiert erkannt und nie automatisch bereinigt:**
+  `MERGE_HEAD`, `CHERRY_PICK_HEAD`, ein laufender Rebase (`REBASE_HEAD`/`rebase-merge`/`rebase-apply`)
+  und `BISECT_LOG`. Die App meldet diese Zustände verständlich und verweist auf die passende manuelle
+  Abbruch-/Abschluss-Aktion (z. B. `git merge --abort`).
+- Neuer, nur bei Bedarf sichtbarer Button **„Verwaiste Git-Sperre sicher entfernen“** für den seltenen
+  Fall, dass eine Sperre nach einem abgestürzten externen Prozess zurückbleibt.
+- Bestehende, fremde Benutzer-Stashes und lokale Änderungen bleiben in jedem Fall unverändert; es wird
+  weiterhin nie `git reset --hard` verwendet.
 
 ## Sicherheit
 

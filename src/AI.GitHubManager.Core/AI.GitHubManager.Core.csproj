@@ -10,5 +10,12 @@
          plain net8.0 (cross-platform) rather than net8.0-windows. All registry access
          is guarded at runtime with OperatingSystem.IsWindows() checks. -->
     <PackageReference Include="Microsoft.Win32.Registry" Version="5.0.0" />
+
+    <!-- Needed for System.Management (WMI: Win32_Process.CommandLine) so the Windows
+         git-process detector can try to correlate a running git.exe with a specific
+         repository path before ever touching an index.lock. Windows-only at runtime
+         (guarded by OperatingSystem.IsWindows()); on other platforms the conservative
+         fallback detector is used instead, so this package is simply unused there. -->
+    <PackageReference Include="System.Management" Version="8.0.0" />
   </ItemGroup>
 </Project>

@@ -221,6 +221,18 @@ Noch sinnvoll zu verifizieren beziehungsweise auszubauen:
   etwas verworfen oder ein bestehender, eigener Stash des Nutzers verändert. Neue Einstellung: „Sicherer
   Pull mit automatischer Schutzsicherung“ (Standard: an) versus „Bei lokalen Änderungen nur warnen und
   Pull abbrechen“.
+- **Sichere Behandlung von `.git/index.lock`**: Reale Fehlermeldung, die dieses Update behebt:
+  `error: Unable to create '.git/index.lock': File exists. Another git process seems to be running
+  in this repository, or the lock file may be stale.` Pro Projektordner läuft jetzt nie mehr als eine
+  schreibende Git-Aktion gleichzeitig (Pull, Commit + Push, Build/Test/Push) — intern über eine
+  `SemaphoreSlim`-Sperre je normalisiertem Repository-Pfad. Vor jeder schreibenden Aktion wird zusätzlich
+  geprüft, ob ein aktiver Git-Prozess erkannt werden kann (unter Windows per WMI-Abfrage, mit sicherem
+  Fallback auf „irgendein Git-Prozess läuft“, falls das nicht möglich ist); erst wenn kein aktiver Prozess
+  erkannt wurde und die Sperrdatei alt genug ist, gilt sie als verwaist und wird entfernt — direkt vor dem
+  Löschen wird das erneut geprüft. Unterbrochene Zustände (`MERGE_HEAD`, `CHERRY_PICK_HEAD`, `REBASE_HEAD`/
+  laufender Rebase, `BISECT_LOG`) werden strukturiert erkannt und **nie** automatisch bereinigt. Nach dem
+  Entfernen einer verwaisten Sperre prüft die App `git status`, bevor irgendetwas fortgesetzt wird. Neuer,
+  nur bei Bedarf sichtbarer Button **„Verwaiste Git-Sperre sicher entfernen“**.
 - Siehe RELEASE_NOTES_v1.6.2.md für Details.
 
 ### Version 1.6.1 — Vorsorglicher Inno-Setup-Hinweis

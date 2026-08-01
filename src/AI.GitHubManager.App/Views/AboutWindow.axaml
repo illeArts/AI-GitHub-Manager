@@ -1,7 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Class="AI.GitHubManager.App.Views.AboutWindow"
-        Width="440" Height="620"
+        Width="440" Height="660"
         CanResize="False"
         SystemDecorations="None"
         WindowStartupLocation="CenterOwner"
@@ -79,15 +79,15 @@
 
         <!-- Logo centered above version -->
         <Image Source="avares://AI.GitHubManager.App/Assets/logo.png"
-               Width="260"
+               Width="130"
                Stretch="Uniform"
                HorizontalAlignment="Center"
                RenderOptions.BitmapInterpolationMode="HighQuality"
-               Margin="0,0,0,16" />
+               Margin="0,0,0,12" />
 
         <!-- Version -->
         <TextBlock x:Name="VersionText"
-                   FontSize="12" Foreground="#2e3d55"
+                   FontSize="12" Foreground="#5a6b90"
                    HorizontalAlignment="Center"
                    Margin="0,0,0,8" />
       </StackPanel>

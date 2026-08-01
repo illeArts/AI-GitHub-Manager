@@ -60,6 +60,10 @@ public sealed record SafePullResult(
     public static SafePullResult NotARepositoryResult(string reason) =>
         new(SafePullState.NotARepository, false, reason, null, null, null, Array.Empty<string>());
 
+    /// <summary>Blocked before any write happened — see <see cref="SafePullState.WriteBlockedByLockGuard"/>.</summary>
+    public static SafePullResult WriteBlockedByLockGuardResult(string reason) =>
+        new(SafePullState.WriteBlockedByLockGuard, false, reason, null, null, null, Array.Empty<string>());
+
     /// <summary>Worktree was already clean, so the pull failure alone (e.g. network
     /// error, no fast-forward) is reported — nothing needed to be restored because
     /// nothing was ever changed.</summary>

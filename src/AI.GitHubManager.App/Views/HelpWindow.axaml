@@ -100,6 +100,10 @@
               <TextBlock x:Name="CmdInstallInnoSetupLabel" Grid.Column="0" Foreground="#74c0fc" FontWeight="SemiBold" FontSize="13" />
               <TextBlock x:Name="CmdInstallInnoSetup" Grid.Column="1" Foreground="#aabbcc" FontSize="13" TextWrapping="Wrap" />
             </Grid>
+            <Grid ColumnDefinitions="150,*">
+              <TextBlock x:Name="CmdRemoveOrphanedGitLockLabel" Grid.Column="0" Foreground="#74c0fc" FontWeight="SemiBold" FontSize="13" />
+              <TextBlock x:Name="CmdRemoveOrphanedGitLock" Grid.Column="1" Foreground="#aabbcc" FontSize="13" TextWrapping="Wrap" />
+            </Grid>
           </StackPanel>
         </Border>
 

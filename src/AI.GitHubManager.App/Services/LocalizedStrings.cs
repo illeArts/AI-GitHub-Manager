@@ -47,6 +47,7 @@ public sealed class LocalizedStrings : INotifyPropertyChanged
     public string BuildTestPushBtn  => L.T("🔧 Build, Test & Push", "🔧 Build, Test & Push");
     public string CreateInstallerBtn => L.T("📦 Installer erstellen", "📦 Create Installer");
     public string InstallInnoSetupBtn => L.T("⬇ Inno Setup installieren", "⬇ Install Inno Setup");
+    public string RemoveOrphanedGitLockBtn => L.T("🔓 Verwaiste Git-Sperre sicher entfernen", "🔓 Safely remove orphaned git lock");
 
     // ── Right panel ───────────────────────────────────────────────────────────
     public string LocalLinkHeader   => L.T("Lokale Verknüpfung",   "Local Link");

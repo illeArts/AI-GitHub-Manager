@@ -24,8 +24,20 @@ public sealed class SafePullService
     private const string BackupTag = "AI GitHub Manager auto-backup";
 
     private readonly CommandRunner _runner;
+    private readonly RepositoryLockService _lockService;
+    private readonly GitLockGuard _lockGuard;
 
-    public SafePullService(CommandRunner runner) => _runner = runner;
+    public SafePullService(CommandRunner runner) : this(runner, RepositoryLockService.Shared, new GitLockGuard(runner)) { }
+
+    /// <summary>Test/DI seam: same shared lock service as <see cref="GitService"/> by
+    /// default, so a safe pull and a concurrent commit+push on the same repository
+    /// still serialize against each other even though they're different classes.</summary>
+    public SafePullService(CommandRunner runner, RepositoryLockService lockService, GitLockGuard lockGuard)
+    {
+        _runner = runner;
+        _lockService = lockService;
+        _lockGuard = lockGuard;
+    }
 
     /// <param name="repositoryPath">Local working copy path.</param>
     /// <param name="warnOnlyOnLocalChanges">
@@ -39,6 +51,11 @@ public sealed class SafePullService
     {
         if (string.IsNullOrWhiteSpace(repositoryPath) || !Directory.Exists(repositoryPath))
             return SafePullResult.NotARepositoryResult("Lokaler Ordner existiert nicht.");
+
+        using var _ = await _lockService.AcquireAsync(repositoryPath, cancellationToken);
+        var lockGuardResult = await _lockGuard.EnsureWritableAsync(repositoryPath, cancellationToken);
+        if (lockGuardResult is not null)
+            return SafePullResult.WriteBlockedByLockGuardResult(lockGuardResult.CombinedOutput);
 
         var insideCheck = await Git(repositoryPath, ["rev-parse", "--is-inside-work-tree"], cancellationToken);
         if (!insideCheck.Success)

@@ -109,6 +109,21 @@ public partial class HelpWindow : Window
             "in the default browser — the app never downloads or installs anything on its own. After installation, " +
             "availability is re-checked automatically on every environment check and after every installer run; the " +
             "button then disappears on its own, no app restart needed.");
+        CmdRemoveOrphanedGitLockLabel.Text = L.T("Verwaiste Git-Sperre sicher entfernen", "Safely remove orphaned git lock");
+        CmdRemoveOrphanedGitLock.Text = L.T(
+            "Erscheint nur, wenn eine .git/index.lock-Datei gefunden wurde, kein aktiver Git-Prozess erkannt " +
+            "werden konnte und die Sperre alt genug ist, um sicher als verwaist zu gelten. Läuft ein Git-Prozess " +
+            "(egal ob dieser App oder ein anderes Programm/Terminal), bleibt die Sperre unangetastet und der Button " +
+            "erscheint nicht. Vor dem Löschen wird direkt nochmal geprüft, danach läuft git status — nur bei " +
+            "gültigem Ergebnis gilt die Reparatur als erfolgreich. Unterbrochene Merges/Rebases/Cherry-Picks werden " +
+            "getrennt erkannt und niemals automatisch bereinigt. Pro Projektordner läuft ohnehin nie mehr als eine " +
+            "schreibende Git-Aktion gleichzeitig (Pull, Commit + Push, Build/Test/Push).",
+            "Only appears when a .git/index.lock file was found, no active git process could be detected, and the " +
+            "lock is old enough to be treated as orphaned. If any git process is running — this app's or another " +
+            "program/terminal's — the lock is left untouched and the button doesn't appear. It re-verifies right " +
+            "before deleting, then runs git status afterwards — only a valid result counts as success. Interrupted " +
+            "merges/rebases/cherry-picks are detected separately and are never auto-cleaned. Only one writing git " +
+            "action ever runs at a time per project folder anyway (Pull, Commit + Push, Build/Test/Push).");
 
         // Troubleshooting
         TsHeader.Text = L.T("Fehlerbehebung", "Troubleshooting");
