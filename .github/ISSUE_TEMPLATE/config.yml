@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Sicherheitslücke vertraulich melden
+    url: https://github.com/illeArts/AI-GitHub-Manager/security/advisories/new
+    about: Keine Sicherheitsdetails, Tokens oder privaten Daten in öffentlichen Issues veröffentlichen.
+  - name: Lizenz- oder kommerzielle Nutzungsanfrage
+    url: https://github.com/illeArts/AI-GitHub-Manager/issues/new
+    about: Nur allgemeine Anfrage ohne vertrauliche Vertrags- oder Personendaten stellen.
