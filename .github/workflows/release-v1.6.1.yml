@@ -1,4 +1,4 @@
-name: Release v1.6.1
+name: Release v1.6.1 — Windows and Linux
 
 on:
   push:
@@ -14,7 +14,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: release-v1.6.1
+  group: release-v1.6.1-windows-linux
   cancel-in-progress: true
 
 env:
@@ -34,7 +34,7 @@ jobs:
         with:
           dotnet-version: 8.0.x
 
-      - name: Verify project version
+      - name: Verify project and installer versions
         shell: bash
         run: |
           grep -q '<Version>1.6.1</Version>' "$PROJECT"
@@ -52,7 +52,7 @@ jobs:
       - name: Test
         run: dotnet test AI.GitHubManager.sln -c Release --no-build --verbosity normal
 
-  package:
+  portable-packages:
     name: Package ${{ matrix.name }}
     needs: verify
     strategy:
@@ -67,14 +67,6 @@ jobs:
             os: ubuntu-latest
             rid: linux-x64
             archive: tar
-          - name: macos-x64
-            os: macos-15-intel
-            rid: osx-x64
-            archive: zip
-          - name: macos-arm64
-            os: macos-14
-            rid: osx-arm64
-            archive: zip
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
@@ -108,41 +100,23 @@ jobs:
           cp RELEASE_NOTES_v1.6.1.md "artifacts/publish/${{ matrix.rid }}/RELEASE_NOTES.md"
 
       - name: Create Windows archive
-        if: matrix.archive == 'zip' && runner.os == 'Windows'
+        if: matrix.archive == 'zip'
         shell: pwsh
         run: |
           $name = "AI-GitHub-Manager-v${env:VERSION}-${{ matrix.name }}.zip"
           Compress-Archive -Path "artifacts/publish/${{ matrix.rid }}/*" -DestinationPath "artifacts/$name" -CompressionLevel Optimal
-
-      - name: Create macOS archive
-        if: matrix.archive == 'zip' && runner.os == 'macOS'
-        shell: bash
-        run: |
-          cd "artifacts/publish/${{ matrix.rid }}"
-          zip -9 -r "../../AI-GitHub-Manager-v${VERSION}-${{ matrix.name }}.zip" .
+          $hash = (Get-FileHash "artifacts/$name" -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  $name" | Set-Content "artifacts/$name.sha256" -Encoding ascii
 
       - name: Create Linux archive
         if: matrix.archive == 'tar'
         shell: bash
         run: |
-          tar -C "artifacts/publish/${{ matrix.rid }}" -czf "artifacts/AI-GitHub-Manager-v${VERSION}-${{ matrix.name }}.tar.gz" .
+          file="artifacts/AI-GitHub-Manager-v${VERSION}-${{ matrix.name }}.tar.gz"
+          tar -C "artifacts/publish/${{ matrix.rid }}" -czf "$file" .
+          sha256sum "$file" > "$file.sha256"
 
-      - name: Create SHA-256 checksum
-        shell: bash
-        run: |
-          cd artifacts
-          if ls AI-GitHub-Manager-v${VERSION}-${{ matrix.name }}.zip >/dev/null 2>&1; then
-            FILE="AI-GitHub-Manager-v${VERSION}-${{ matrix.name }}.zip"
-          else
-            FILE="AI-GitHub-Manager-v${VERSION}-${{ matrix.name }}.tar.gz"
-          fi
-          if command -v sha256sum >/dev/null 2>&1; then
-            sha256sum "$FILE" > "$FILE.sha256"
-          else
-            shasum -a 256 "$FILE" > "$FILE.sha256"
-          fi
-
-      - name: Upload package
+      - name: Upload portable package
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.name }}
@@ -186,7 +160,7 @@ jobs:
         shell: pwsh
         run: choco install innosetup --no-progress --yes
 
-      - name: Compile installer
+      - name: Compile installer and checksum
         shell: pwsh
         run: |
           $iscc = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'
@@ -219,16 +193,16 @@ jobs:
           retention-days: 30
 
   release:
-    name: Publish GitHub release
+    name: Update GitHub release
     needs:
-      - package
+      - portable-packages
       - windows-installer
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Download packages
+      - name: Download Windows and Linux assets
         uses: actions/download-artifact@v4
         with:
           path: release-assets
