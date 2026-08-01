@@ -274,8 +274,9 @@ public sealed class MainWindowViewModel : ViewModelBase
                 CanSanitizeRemote = false;
             }
 
-            // Runs last so an interrupted-state warning it may append to Log survives
-            // (an earlier Log = ... assignment above would otherwise overwrite it).
+            // Runs last so a detected lock/interrupted-state banner it may prepend to
+            // Log survives (an earlier Log = ... assignment above would otherwise wipe
+            // it out, and the banner needs the final Log text to prepend onto).
             RefreshGitLockAvailability();
         });
     }
@@ -909,28 +910,57 @@ public sealed class MainWindowViewModel : ViewModelBase
         var check = _git.CheckLockStatus(LocalPath);
         CanRemoveOrphanedGitLock = check.Status == GitLockStatus.OrphanedRemovable;
 
-        if (check.InterruptedState is not null)
-            Log += "\n\n⚠ " + check.InterruptedState.Message;
+        // A detected lock or interrupted state must never be silently contradicted by
+        // an unrelated "Alle kritischen Checks bestanden. Push möglich." text further
+        // up (from SyncPreflightService/EnvironmentCheckService, neither of which know
+        // anything about .git/index.lock). An earlier fix appended a note to the *end*
+        // of Log, which turned out to be easy to miss in practice: the log view doesn't
+        // auto-scroll down, so the warning could sit below the visible area while the
+        // stale success line stayed on screen. Prepending a clear banner above
+        // everything else fixes that regardless of scroll position.
+        var banner = BuildLockBanner(check);
+        if (!string.IsNullOrEmpty(banner))
+            Log = banner + "\n\n———\n\n" + Log;
+    }
 
-        // A detected .git/index.lock must never be silently omitted from the log —
-        // otherwise an earlier "Alle kritischen Checks bestanden" text (from the
-        // unrelated SyncPreflightService/EnvironmentCheckService report, which has
-        // no knowledge of index.lock at all) stands uncontested even though a lock
-        // exists and Pull/Push are actually blocked. Surface it explicitly here,
-        // for every non-NoLockPresent status, regardless of whether it also carries
-        // an interrupted-state marker.
-        if (check.Status != GitLockStatus.NoLockPresent)
+    /// <summary>Builds a top-of-log banner describing a detected interrupted git
+    /// operation and/or index.lock state, or <c>string.Empty</c> if everything is clear.</summary>
+    private string BuildLockBanner(GitLockCheckResult check)
+    {
+        var parts = new List<string>();
+
+        if (check.InterruptedState is not null)
+            parts.Add("⚠ " + check.InterruptedState.Message);
+
+        switch (check.Status)
         {
-            var icon = check.Status switch
-            {
-                GitLockStatus.OrphanedRemovable => "🔓",
-                GitLockStatus.ActiveProcessDetected => "⏳",
-                _ => "⚠",
-            };
-            Log += "\n\n" + icon + " " + L.T(
-                "Git-Sperre erkannt (.git/index.lock): ",
-                "Git lock detected (.git/index.lock): ") + check.Message;
+            case GitLockStatus.OrphanedRemovable:
+                parts.Add(L.T(
+                    "🔓 Verwaiste Git-Sperre erkannt.\n\n" +
+                    "Der Repository-Zustand ist grundsätzlich gültig, jedoch wurde eine verwaiste " +
+                    ".git/index.lock-Datei gefunden.\n\n" +
+                    "Die Sperre kann über „Verwaiste Git-Sperre sicher entfernen“ entfernt werden. " +
+                    "Push/Pull sollte erst danach ausgeführt werden.",
+                    "🔓 Orphaned Git lock detected.\n\n" +
+                    "The repository state is otherwise valid, but an orphaned .git/index.lock file " +
+                    "was found.\n\n" +
+                    "The lock can be removed via \"Safely remove orphaned Git lock\". " +
+                    "Pull/Push should only be run afterwards."));
+                break;
+
+            case GitLockStatus.ActiveProcessDetected:
+                parts.Add(L.T(
+                    "⏳ Git-Sperre erkannt (.git/index.lock) – aktiver Git-Prozess möglich.\n\n" + check.Message,
+                    "⏳ Git lock detected (.git/index.lock) – an active git process may be involved.\n\n" + check.Message));
+                break;
+
+            case GitLockStatus.RepositoryInvalidAfterRemoval:
+            case GitLockStatus.RemovalFailed:
+                parts.Add("⚠ " + check.Message);
+                break;
         }
+
+        return string.Join("\n\n", parts);
     }
 
     /// <summary>
