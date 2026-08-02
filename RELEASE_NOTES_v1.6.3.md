@@ -1,9 +1,9 @@
 # AI GitHub Manager v1.6.3
 
-**Entwurf — Meilensteine 1–4 vollständig implementiert, gebaut und getestet.
-Meilenstein 5 (Doku/finale Builds) läuft. Noch NICHT release-fertig: die
-Developer-ID-Signierung/Notarisierung für macOS steht noch aus (siehe
-„Bekannte Einschränkungen").
+**Entwurf — Meilensteine 1–5 vollständig implementiert, gebaut und getestet,
+inklusive echtem macOS-arm64-Laufzeittest auf einem echten Mac. Noch NICHT
+release-fertig: die Developer-ID-Signierung/Notarisierung für macOS steht
+noch aus (siehe „Bekannte Einschränkungen").
 
 AI GitHub Manager 1.6.3 bringt macOS und Linux auf Funktionsparität mit Windows
 (Einstellungen, Benutzerhandbuch/Hilfe, Über-Dialog) und macht die Git-Bedienung
@@ -79,7 +79,7 @@ _Wird nach Abschluss der Builds ergänzt._
 - Für die Windows-Installer-Erstellung innerhalb der App: Inno Setup 6.
 - Für Entwicklung aus dem Quellcode: .NET 8 SDK.
 
-## Test- und Build-Status (Stand Meilenstein 4, Sandbox-Build)
+## Test- und Build-Status
 
 - Tests: 249/249 grün (`dotnet test`, Release-Konfiguration), 0 Warnings,
   0 Errors beim Build. Deckt u. a. ab: Vorgangsmodell (Risikostufen,
@@ -89,23 +89,33 @@ _Wird nach Abschluss der Builds ergänzt._
   Vorabprüfungs-Vorschau, echte (nicht gemockte) Integrationstests für
   Clean/Reset/Hard-Reset/Rebase/Cherry-Pick/Force-Push gegen echte
   Git-Repositories, Bestätigungs-Gating auf ViewModel-Ebene.
-- Cross-Builds aus der Entwicklungsumgebung (Linux/ARM64) für alle fünf
-  Zielplattformen erfolgreich: `win-x64` (PE32+), `osx-arm64` (Mach-O
-  arm64), `osx-x64` (Mach-O x86_64), `linux-x64` (ELF x86-64),
-  `linux-arm64` (ELF aarch64) — jeweils korrekte Architektur verifiziert,
-  keine plattformfremden Binärdateien in den Ausgabeordnern.
-- Echter Laufzeittest: **nur `linux-arm64`**, da dies die native Architektur
-  der Build-Umgebung ist — der self-contained Build wurde unter Xvfb
-  (virtueller Framebuffer) tatsächlich gestartet und lief fehlerfrei bis
-  zum kontrollierten Abbruch (kein Absturz, keine Fehlerausgabe).
-- **`macOS-arm64` wurde in dieser Umgebung NICHT real getestet** — hier
-  existieren weder `codesign`, `plutil`, `xattr`, `ditto` noch `spctl`. Der
-  reale macOS-Test (Bundle-Assembly, Ad-hoc-Signierung, `codesign --verify`,
-  tatsächlicher App-Start) muss wie in 1.6.2 über
-  `scripts/verify-macos-app-bundle.sh` auf einem echten Mac erfolgen
-  (Skript ist bereits auf `VERSION="1.6.3"` aktualisiert).
-- `win-x64` und `osx-x64` wurden nur cross-kompiliert, nicht ausgeführt
-  (kein Windows- bzw. Intel-Mac-System in dieser Umgebung verfügbar).
+- Cross-Builds für alle fünf Zielplattformen erfolgreich: `win-x64`
+  (PE32+), `osx-arm64` (Mach-O arm64), `osx-x64` (Mach-O x86_64),
+  `linux-x64` (ELF x86-64), `linux-arm64` (ELF aarch64) — jeweils korrekte
+  Architektur verifiziert, keine plattformfremden Binärdateien in den
+  Ausgabeordnern.
+- **Echter Laufzeittest `macOS-arm64`: bestanden.** Über
+  `scripts/verify-macos-app-bundle.sh` auf einem echten Mac gebaut, ad-hoc
+  signiert, `codesign --verify --deep --strict --verbose=4` erfolgreich
+  (sowohl am gepackten Bundle als auch am entpackten ZIP-Inhalt), und die
+  App wurde tatsächlich gestartet (`Contents/MacOS/AI.GitHubManager.App`
+  direkt ausgeführt). Das neue Vorgangsmodell ist im laufenden Betrieb
+  bestätigt sichtbar: Dropdown „Was möchtest du tun?" mit Vorauswahl
+  „Aktualisieren", Erklärungsfeld (Geeignet für/Was wird verändert/Was
+  bleibt unverändert/Risiko/Risikostufe „Vorsicht"/technischer Befehl
+  `git pull`) sowie die „Was passiert jetzt?"-Schrittliste mit
+  Zusammenfassung. `spctl` lehnt die App erwartungsgemäß ab (Ad-hoc-Signatur
+  ohne Developer ID/Notarisierung — kein Fehler, siehe „Bekannte
+  Einschränkungen").
+- `macOS-x64` wurde auf demselben Mac gebaut und ebenfalls erfolgreich
+  ad-hoc signiert/verifiziert (`codesign --verify` bestanden), aber nicht
+  gestartet (kein Intel-Mac bzw. Rosetta-Test in dieser Runde durchgeführt)
+  — das ist ein Build- und Signatur-Nachweis, kein Laufzeittest.
+- `linux-arm64` wurde zusätzlich in der Entwicklungsumgebung unter Xvfb
+  (virtueller Framebuffer) real gestartet und lief fehlerfrei bis zum
+  kontrollierten Abbruch (kein Absturz, keine Fehlerausgabe).
+- `win-x64` und `linux-x64` sind reine Cross-Builds, nicht ausgeführt
+  (kein Windows- bzw. x64-Linux-System in dieser Runde verfügbar).
 - Update-Erkennung erneut geprüft: `UpdateCheckService`-Fallback-Version
   steht auf „1.6.3".
 
