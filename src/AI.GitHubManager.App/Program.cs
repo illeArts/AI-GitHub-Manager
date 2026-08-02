@@ -4,6 +4,14 @@ namespace AI.GitHubManager.App;
 
 internal static class Program
 {
+    /// <summary>
+    /// True only when BuildAvaloniaApp() took the explicit UseAvaloniaNative()
+    /// branch (macOS). Read by App.axaml.cs's startup diagnostics so a real
+    /// run can prove which windowing backend actually got selected, instead
+    /// of assuming it from the source code alone.
+    /// </summary>
+    public static bool UsedAvaloniaNativeMacBranch { get; private set; }
+
     [STAThread]
     public static void Main(string[] args) => BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
 
@@ -25,8 +33,12 @@ internal static class Program
         // statically-resolved method call the single-file bundler can see
         // and embed correctly, instead of a runtime assembly-load-by-name
         // that can silently miss inside the bundle.
-        return OperatingSystem.IsMacOS()
-            ? builder.UseAvaloniaNative().UseSkia()
-            : builder.UsePlatformDetect();
+        if (OperatingSystem.IsMacOS())
+        {
+            UsedAvaloniaNativeMacBranch = true;
+            return builder.UseAvaloniaNative().UseSkia();
+        }
+
+        return builder.UsePlatformDetect();
     }
 }
