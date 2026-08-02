@@ -66,7 +66,7 @@ public sealed class SafePullService
             return SafePullResult.NotARepositoryResult("Git-Status konnte nicht gelesen werden:\n" + status.CombinedOutput);
 
         var changedFiles = status.StandardOutput
-            .Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries)
+            .Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
             .Select(l => l.Trim())
             .ToArray();
 
@@ -181,7 +181,7 @@ public sealed class SafePullService
         if (!status.Success) return Array.Empty<string>();
 
         return status.StandardOutput
-            .Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries)
+            .Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
             .Where(line => line.Length >= 2 && IsConflictMarker(line[..2]))
             .Select(line => line[3..].Trim())
             .ToArray();
@@ -196,7 +196,7 @@ public sealed class SafePullService
         var list = await Git(repositoryPath, ["stash", "list", "--format=%H%x09%gd%x09%gs"], cancellationToken);
         if (!list.Success) return null;
 
-        foreach (var line in list.StandardOutput.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries))
+        foreach (var line in list.StandardOutput.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries))
         {
             var parts = line.Split('\t');
             if (parts.Length < 3) continue;
