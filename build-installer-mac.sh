@@ -68,28 +68,45 @@ for RID in "${RIDS[@]}"; do
     ok "Published → $OUT_DIR"
 
     # ── Locate or build .app bundle ──────────────────────────────────────────
-    APP_BUNDLE=$(find "$OUT_DIR" -name "*.app" -maxdepth 2 2>/dev/null | head -1)
+    # We always assemble the bundle ourselves: dotnet publish for macOS RIDs
+    # only produces the bare executable + native .dylib files side by side,
+    # never a real .app bundle. A loose "AI.GitHubManager.App" file is not
+    # something Finder can open — it must be wrapped in Contents/MacOS,
+    # Contents/Resources and an Info.plist before it is distributable.
+    log "Assembling .app bundle ..."
 
-    if [[ -z "$APP_BUNDLE" ]]; then
-        log "No .app bundle from publish — creating manually ..."
+    APP_BUNDLE="$OUT_DIR/${APP_NAME}.app"
+    MACOS_DIR="$APP_BUNDLE/Contents/MacOS"
+    RES_DIR="$APP_BUNDLE/Contents/Resources"
+    rm -rf "$APP_BUNDLE"
+    mkdir -p "$MACOS_DIR" "$RES_DIR"
 
-        APP_BUNDLE="$OUT_DIR/${APP_NAME}.app"
-        MACOS_DIR="$APP_BUNDLE/Contents/MacOS"
-        RES_DIR="$APP_BUNDLE/Contents/Resources"
-        mkdir -p "$MACOS_DIR" "$RES_DIR"
+    # Binary — keep the real assembly name so update checks / diagnostics
+    # that shell out to "AI.GitHubManager.App" keep working inside the bundle.
+    # cp -X: never copy extended attributes from the source file, so nothing
+    # can be inherited from the repo checkout into the freshly built bundle.
+    BINARY=$(find "$OUT_DIR" -maxdepth 1 -name "AI.GitHubManager.App" -type f | head -1)
+    [[ -z "$BINARY" ]] && err "Could not find the published binary in $OUT_DIR"
+    cp -X "$BINARY" "$MACOS_DIR/AI.GitHubManager.App"
+    chmod +x "$MACOS_DIR/AI.GitHubManager.App"
 
-        # Binary
-        BINARY=$(find "$OUT_DIR" -maxdepth 1 -name "AI.GitHubManager.App" -type f | head -1)
-        [[ -z "$BINARY" ]] && BINARY=$(find "$OUT_DIR" -maxdepth 1 -type f -perm /111 | head -1)
-        [[ -z "$BINARY" ]] && err "Could not find the published binary in $OUT_DIR"
-        cp "$BINARY" "$MACOS_DIR/AI GitHub Manager"
-        chmod +x "$MACOS_DIR/AI GitHub Manager"
+    # Native Avalonia libraries must sit next to the executable to be found.
+    for dylib in "$OUT_DIR"/*.dylib; do
+        [[ -f "$dylib" ]] && cp -X "$dylib" "$MACOS_DIR/"
+    done
 
-        # Copy logo as icns placeholder (proper icns should be generated separately)
-        cp "src/AI.GitHubManager.App/Assets/logo.png" "$RES_DIR/AppIcon.png"
+    # Real .icns (generated ahead of time via iconutil/sips from Assets/logo.png
+    # and checked in at src/AI.GitHubManager.App/Assets/AppIcon.icns).
+    ICNS_SRC="src/AI.GitHubManager.App/Assets/AppIcon.icns"
+    if [[ -f "$ICNS_SRC" ]]; then
+        cp -X "$ICNS_SRC" "$RES_DIR/AppIcon.icns"
+    else
+        err "Missing $ICNS_SRC — regenerate it before building the installer."
+    fi
+    cp -X LICENSE "$RES_DIR/LICENSE.txt" 2>/dev/null || true
 
-        # Info.plist
-        cat > "$APP_BUNDLE/Contents/Info.plist" <<PLIST
+    # Info.plist
+    cat > "$APP_BUNDLE/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
   "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -100,9 +117,11 @@ for RID in "${RIDS[@]}"; do
     <key>CFBundleIdentifier</key>        <string>${BUNDLE_ID}</string>
     <key>CFBundleVersion</key>           <string>${APP_VERSION}</string>
     <key>CFBundleShortVersionString</key><string>${APP_VERSION}</string>
-    <key>CFBundleExecutable</key>        <string>AI GitHub Manager</string>
-    <key>CFBundleIconFile</key>          <string>AppIcon</string>
+    <key>CFBundleExecutable</key>        <string>AI.GitHubManager.App</string>
+    <key>CFBundleIconFile</key>          <string>AppIcon.icns</string>
     <key>CFBundlePackageType</key>       <string>APPL</string>
+    <key>CFBundleSignature</key>         <string>????</string>
+    <key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
     <key>LSMinimumSystemVersion</key>    <string>12.0</string>
     <key>NSHighResolutionCapable</key>   <true/>
     <key>NSHumanReadableCopyright</key>  <string>© 2026 illeArts</string>
@@ -110,10 +129,49 @@ for RID in "${RIDS[@]}"; do
 </dict>
 </plist>
 PLIST
-        ok "App bundle created → $APP_BUNDLE"
-    else
-        ok "App bundle found  → $APP_BUNDLE"
+
+    if command -v plutil &>/dev/null; then
+        plutil -lint "$APP_BUNDLE/Contents/Info.plist"
     fi
+
+    # Ad-hoc sign so the bundle at least passes a basic codesign verification
+    # locally. This is NOT a Developer ID signature and is NOT notarized —
+    # see RELEASE_NOTES / scripts/verify-macos-app-bundle.sh for details.
+    #
+    # LaunchServices/Icon Services can tag a freshly created .app bundle
+    # directory with a com.apple.FinderInfo "has custom icon" extended
+    # attribute the instant it notices the bundle — this can happen *after*
+    # a strip+codesign and make codesign --verify fail immediately
+    # afterwards. Audit, strip, sign, audit again, targeted re-strip of
+    # FinderInfo if it reappeared, then verify — never proceed to the DMG
+    # step unless codesign --verify actually passes.
+    if command -v codesign &>/dev/null && command -v xattr &>/dev/null; then
+        log "Extended attributes before cleanup:"
+        xattr -lr "$APP_BUNDLE" 2>/dev/null || true
+
+        xattr -cr "$APP_BUNDLE" 2>/dev/null || true
+        find "$APP_BUNDLE" -exec xattr -c {} \; 2>/dev/null || true
+        if xattr -lr "$APP_BUNDLE" 2>/dev/null | grep -q .; then
+            xattr -lr "$APP_BUNDLE"
+            err "Extended attributes remain on $APP_BUNDLE after stripping."
+        fi
+
+        codesign --force --deep --sign - "$APP_BUNDLE"
+        ok "codesign succeeded"
+
+        if xattr -lr "$APP_BUNDLE" 2>/dev/null | grep -q "com.apple.FinderInfo"; then
+            log "com.apple.FinderInfo reappeared after signing — removing it and re-signing once ..."
+            xattr -d com.apple.FinderInfo "$APP_BUNDLE" 2>/dev/null || true
+            find "$APP_BUNDLE" -exec xattr -d com.apple.FinderInfo {} \; 2>/dev/null || true
+            codesign --force --deep --sign - "$APP_BUNDLE"
+        fi
+
+        # Never package a DMG from a bundle whose signature doesn't verify.
+        codesign --verify --deep --strict --verbose=4 "$APP_BUNDLE"
+        ok "codesign --verify passed"
+    fi
+
+    ok "App bundle created → $APP_BUNDLE"
 
     # ── Create DMG ───────────────────────────────────────────────────────────
     ARCH_LABEL="${RID/osx-/}"   # arm64 or x64

@@ -41,9 +41,11 @@
     <PackageReference Include="Avalonia.Fonts.Inter"  Version="11.2.3" />
   </ItemGroup>
 
-  <!-- Embed Assets as Avalonia resources (logo, profile picture, icon) -->
+  <!-- Embed Assets as Avalonia resources (logo, profile picture, icon).
+       AppIcon.icns is excluded: it is packaging-only input for the macOS
+       .app bundle (Contents/Resources/AppIcon.icns), not an app resource. -->
   <ItemGroup>
-    <AvaloniaResource Include="Assets\**" />
+    <AvaloniaResource Include="Assets\**" Exclude="Assets\AppIcon.icns" />
   </ItemGroup>
 
   <ItemGroup>
