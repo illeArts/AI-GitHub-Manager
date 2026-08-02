@@ -8,8 +8,25 @@ internal static class Program
     public static void Main(string[] args) => BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
 
     public static AppBuilder BuildAvaloniaApp()
-        => AppBuilder.Configure<App>()
-            .UsePlatformDetect()
+    {
+        var builder = AppBuilder.Configure<App>()
             .WithInterFont()
             .LogToTrace();
+
+        // UsePlatformDetect() is supposed to pick Avalonia.Native on macOS
+        // automatically via reflection (Type.GetType("Avalonia.Native...")),
+        // but that reflection-based lookup is unreliable in a
+        // PublishSingleFile self-contained build: real-machine testing
+        // showed the native macOS backend (and with it, the entire
+        // NativeMenu/NSApplication integration — About/Settings/Hilfe/the
+        // real app name in the system menu bar) silently failing to
+        // activate even with the Avalonia.Native package referenced and
+        // restored. Calling UseAvaloniaNative() directly is a real,
+        // statically-resolved method call the single-file bundler can see
+        // and embed correctly, instead of a runtime assembly-load-by-name
+        // that can silently miss inside the bundle.
+        return OperatingSystem.IsMacOS()
+            ? builder.UseAvaloniaNative().UseSkia()
+            : builder.UsePlatformDetect();
+    }
 }
