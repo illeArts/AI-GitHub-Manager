@@ -210,6 +210,84 @@ public sealed class GitService
     public Task<CommandResult> SetRemoteOriginAsync(string repositoryPath, string remoteUrl, CancellationToken cancellationToken = default)
         => _runner.RunAsync("git", ["remote", "set-url", "origin", remoteUrl], repositoryPath, cancellationToken);
 
+    // ── Advanced/dangerous operations (Teil B2) ─────────────────────────────
+    // Every method here is only ever reached after the UI has shown an
+    // explicit, un-defaulted, non-Enter-triggered confirmation dialog
+    // (Teil B7/D) — none of these run automatically or silently. All ref
+    // arguments are validated with GitRefValidator before being placed in
+    // the argument list (Teil D: no unsafe input, no shell concatenation —
+    // arguments are always passed as a discrete array to the process, never
+    // built as a command string).
+
+    /// <summary>Force push using --force-with-lease (never plain --force) — Teil B2.
+    /// The only advanced operation that genuinely needs a remote, so it uses the
+    /// full <see cref="EnsureRepositoryAsync(string,CancellationToken)"/> check
+    /// (origin must exist) rather than the local-only check the others use.</summary>
+    public async Task<CommandResult> ForcePushWithLeaseAsync(string repositoryPath, CancellationToken cancellationToken = default)
+    {
+        using var _ = await _lockService.AcquireAsync(repositoryPath, cancellationToken);
+        var lockGuardResult = await _lockGuard.EnsureWritableAsync(repositoryPath, cancellationToken);
+        if (lockGuardResult is not null) return lockGuardResult;
+
+        var repositoryCheck = await EnsureRepositoryAsync(repositoryPath, cancellationToken);
+        if (repositoryCheck is not null) return repositoryCheck;
+
+        return await _runner.RunAsync("git", ["push", "--force-with-lease"], repositoryPath, cancellationToken);
+    }
+
+    /// <summary>Irreversibly deletes untracked files/folders (git clean -fd) — Teil B2.
+    /// Purely local — no remote required.</summary>
+    public Task<CommandResult> CleanAsync(string repositoryPath, CancellationToken cancellationToken = default)
+        => RunGuardedLocalWriteAsync(repositoryPath, ["clean", "-fd"], cancellationToken);
+
+    /// <summary>Non-hard reset — keeps changes as unstaged (git reset &lt;ref&gt;) — Teil B2.</summary>
+    public Task<CommandResult> ResetAsync(string repositoryPath, string targetRef, CancellationToken cancellationToken = default)
+        => RunGuardedLocalWriteWithRefAsync(repositoryPath, "reset", targetRef, cancellationToken);
+
+    /// <summary>Irreversibly discards uncommitted changes (git reset --hard &lt;ref&gt;) — Teil B2.</summary>
+    public Task<CommandResult> HardResetAsync(string repositoryPath, string targetRef, CancellationToken cancellationToken = default)
+        => RunGuardedLocalWriteWithRefAsync(repositoryPath, "reset --hard", targetRef, cancellationToken, ["reset", "--hard"]);
+
+    /// <summary>Replays local commits onto a new base, rewriting history (git rebase &lt;ref&gt;) — Teil B2.</summary>
+    public Task<CommandResult> RebaseAsync(string repositoryPath, string targetRef, CancellationToken cancellationToken = default)
+        => RunGuardedLocalWriteWithRefAsync(repositoryPath, "rebase", targetRef, cancellationToken);
+
+    /// <summary>Applies a single commit onto the current branch (git cherry-pick &lt;ref&gt;) — Teil B2.</summary>
+    public Task<CommandResult> CherryPickAsync(string repositoryPath, string commitRef, CancellationToken cancellationToken = default)
+        => RunGuardedLocalWriteWithRefAsync(repositoryPath, "cherry-pick", commitRef, cancellationToken);
+
+    private Task<CommandResult> RunGuardedLocalWriteWithRefAsync(
+        string repositoryPath, string commandLabel, string targetRef, CancellationToken cancellationToken, string[]? argPrefix = null)
+    {
+        var error = GitRefValidator.ValidationError(targetRef);
+        if (error is not null)
+            return Task.FromResult(new CommandResult(-1, string.Empty, error.Value.De, "git", commandLabel));
+
+        var args = (argPrefix ?? [commandLabel]).Append(targetRef.Trim()).ToArray();
+        return RunGuardedLocalWriteAsync(repositoryPath, args, cancellationToken);
+    }
+
+    /// <summary>Lock-guarded write for operations that only touch the local
+    /// repository — checks that the path is a real git work tree, but does
+    /// NOT require a configured "origin" remote (unlike
+    /// <see cref="EnsureRepositoryAsync(string,CancellationToken)"/>, which
+    /// backs Pull/Commit+Push/ForcePush and is remote-oriented).</summary>
+    private async Task<CommandResult> RunGuardedLocalWriteAsync(string repositoryPath, string[] args, CancellationToken cancellationToken)
+    {
+        using var _ = await _lockService.AcquireAsync(repositoryPath, cancellationToken);
+        var lockGuardResult = await _lockGuard.EnsureWritableAsync(repositoryPath, cancellationToken);
+        if (lockGuardResult is not null) return lockGuardResult;
+
+        if (string.IsNullOrWhiteSpace(repositoryPath) || !Directory.Exists(repositoryPath))
+            return new CommandResult(-1, string.Empty, "Lokaler Ordner existiert nicht.", "git", string.Empty);
+
+        var inside = await _runner.RunAsync("git", ["rev-parse", "--is-inside-work-tree"], repositoryPath, cancellationToken);
+        if (!inside.Success)
+            return new CommandResult(inside.ExitCode, inside.StandardOutput, "Der Ordner ist kein Git-Repository.\n" + inside.StandardError, "git", "rev-parse --is-inside-work-tree");
+
+        return await _runner.RunAsync("git", args, repositoryPath, cancellationToken);
+    }
+
     private async Task<CommandResult?> EnsureRepositoryAsync(
         string repositoryPath,
         CancellationToken cancellationToken)

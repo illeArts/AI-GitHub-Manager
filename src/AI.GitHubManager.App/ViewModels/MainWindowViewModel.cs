@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Windows.Input;
 using AI.GitHubManager.App.Services;
+using AI.GitHubManager.App.Views;
 using AI.GitHubManager.Core.Build;
 using AI.GitHubManager.Core.Diagnostics;
 using AI.GitHubManager.Core.EnvironmentRepair;
@@ -99,6 +100,8 @@ public sealed class MainWindowViewModel : ViewModelBase
         var installInnoSetup = new RelayCommand(() => { OpenInnoSetupDownload(); return Task.CompletedTask; }, () => !IsBusy);
         var removeOrphanedGitLock = new RelayCommand(RemoveOrphanedGitLockAsync, () => !IsBusy);
         var executeSelectedOperation = new RelayCommand(ExecuteSelectedOperationAsync, () => !IsBusy);
+        _executeAdvancedOperation = new RelayCommand<GitOperationDefinition>(ExecuteAdvancedOperationAsync, _ => !IsBusy);
+        ExecuteAdvancedOperationCommand = _executeAdvancedOperation;
 
         CheckEnvironmentCommand     = checkEnv;
         LoadProjectsCommand         = loadProjects;
@@ -177,6 +180,16 @@ public sealed class MainWindowViewModel : ViewModelBase
     public ICommand InstallInnoSetupCommand       { get; }
     public ICommand RemoveOrphanedGitLockCommand  { get; }
     public ICommand ExecuteSelectedOperationCommand { get; }
+    public ICommand ExecuteAdvancedOperationCommand { get; }
+
+    private readonly RelayCommand<GitOperationDefinition> _executeAdvancedOperation;
+
+    /// <summary>
+    /// Set by the view (code-behind) to show the actual confirmation dialog.
+    /// Kept as an injectable func rather than a hard Window reference so the
+    /// ViewModel stays unit-testable without a real UI (Teil F).
+    /// </summary>
+    public Func<AdvancedOperationConfirmationRequest, Task<AdvancedOperationConfirmationResult?>>? ConfirmAdvancedOperationFunc { get; set; }
 
     public ManagedProject? SelectedProject
     {
@@ -348,7 +361,10 @@ public sealed class MainWindowViewModel : ViewModelBase
         set
         {
             if (SetProperty(ref _isBusy, value))
+            {
                 foreach (var cmd in _allCommands) cmd.RaiseCanExecuteChanged();
+                _executeAdvancedOperation.RaiseCanExecuteChanged();
+            }
         }
     }
 
@@ -439,6 +455,69 @@ public sealed class MainWindowViewModel : ViewModelBase
             $"\"{operation.TitleEn}\" ({operation.TechnicalCommand}) is described but not yet executable " +
             "in this milestone. Preflight checks and technical execution follow in a later step. Use the " +
             "existing \"Status\", \"Update\", or \"Create commit and upload\" actions for now.");
+    }
+
+    /// <summary>
+    /// Entry point for the "Erweiterte Befehle" area (Teil B2/B7). Never runs
+    /// anything without first showing the confirmation dialog via
+    /// <see cref="ConfirmAdvancedOperationFunc"/> — if that func isn't wired
+    /// (e.g. in a headless test), nothing executes and the user is told why.
+    /// The dialog itself enforces "no Enter-triggered execution" and, for
+    /// Dangerous operations, a typed second confirmation — this method only
+    /// ever sees the already-validated result.
+    /// </summary>
+    private async Task ExecuteAdvancedOperationAsync(GitOperationDefinition? operation)
+    {
+        if (operation is null) return;
+
+        await Busy(async () =>
+        {
+            if (ConfirmAdvancedOperationFunc is null)
+            {
+                Log = L.T(
+                    "Bestätigungsdialog ist nicht verfügbar — Vorgang wurde NICHT ausgeführt.",
+                    "Confirmation dialog is not available — the operation was NOT executed.");
+                return;
+            }
+
+            var status = await _git.GetStatusAsync(LocalPath);
+            var request = new AdvancedOperationConfirmationRequest(operation, LocalPath, status.Branch);
+            var confirmation = await ConfirmAdvancedOperationFunc(request);
+
+            if (confirmation is not { Confirmed: true })
+            {
+                Log = L.T(
+                    $"„{operation.TitleDe}\" wurde abgebrochen — keine Bestätigung erteilt. Es wurde nichts verändert.",
+                    $"\"{operation.TitleEn}\" was cancelled — not confirmed. Nothing was changed.");
+                return;
+            }
+
+            var result = operation.Id switch
+            {
+                "force-push"   => await _git.ForcePushWithLeaseAsync(LocalPath),
+                "clean"        => await _git.CleanAsync(LocalPath),
+                "reset"        => await _git.ResetAsync(LocalPath, confirmation.TargetRef ?? string.Empty),
+                "hard-reset"   => await _git.HardResetAsync(LocalPath, confirmation.TargetRef ?? string.Empty),
+                "rebase"       => await _git.RebaseAsync(LocalPath, confirmation.TargetRef ?? string.Empty),
+                "cherry-pick"  => await _git.CherryPickAsync(LocalPath, confirmation.TargetRef ?? string.Empty),
+                _ => null,
+            };
+
+            if (result is null)
+            {
+                Log = L.T(
+                    $"„{operation.TitleDe}\" ist beschrieben, aber technisch noch nicht verdrahtet.",
+                    $"\"{operation.TitleEn}\" is described but not yet technically wired up.");
+                return;
+            }
+
+            Log = result.Success
+                ? L.T($"✅ „{operation.TitleDe}\" erfolgreich ausgeführt.\n\n", $"✅ \"{operation.TitleEn}\" executed successfully.\n\n")
+                    + result.CombinedOutput.Trim()
+                : EnrichWithErrorHint(result.CombinedOutput);
+
+            RefreshGitLockAvailability();
+        });
     }
 
     private async Task GitStatusAsync()

@@ -39,6 +39,12 @@ public partial class MainWindow : Window
                     });
                 return result.FirstOrDefault()?.Path.LocalPath;
             };
+
+            // Teil B7/D: the actual confirmation UI for advanced/dangerous
+            // operations. Kept out of the ViewModel so it stays unit-testable
+            // without a real window.
+            vm.ConfirmAdvancedOperationFunc = async request =>
+                await new ConfirmDangerousOperationWindow(request).ShowDialog<AdvancedOperationConfirmationResult?>(this);
         }
     }
 

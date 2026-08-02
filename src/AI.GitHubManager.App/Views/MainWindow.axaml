@@ -2,6 +2,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:conv="clr-namespace:AI.GitHubManager.App.Converters"
         x:Class="AI.GitHubManager.App.Views.MainWindow"
+        x:Name="RootWindow"
         Title="AI GitHub Manager"
         Width="1360"
         Height="720"
@@ -151,7 +152,8 @@
               <ComboBox Grid.Column="0"
                         ItemsSource="{Binding AvailableOperations}"
                         SelectedItem="{Binding SelectedOperation}"
-                        HorizontalAlignment="Stretch">
+                        HorizontalAlignment="Stretch"
+                        AutomationProperties.Name="{Binding Strings.OperationDropdownLabel}">
                 <ComboBox.ItemTemplate>
                   <DataTemplate>
                     <TextBlock Text="{Binding Converter={x:Static conv:GitOperationTitleConverter.Instance}}" />
@@ -161,7 +163,8 @@
               <Button Grid.Column="1"
                       Content="{Binding Strings.OperationRunButton}"
                       Command="{Binding ExecuteSelectedOperationCommand}"
-                      Margin="8,0,0,0" />
+                      Margin="8,0,0,0"
+                      AutomationProperties.Name="{Binding SelectedOperationTitle}" />
             </Grid>
 
             <!-- Explanation panel directly under the selection (Teil B4) -->
@@ -217,8 +220,10 @@
               </StackPanel>
             </Border>
 
-            <!-- ── Advanced commands (Teil B2) — collapsed, informational only,
-                 never auto-selected, never executed from here. ─────────────── -->
+            <!-- ── Advanced commands (Teil B2) — collapsed by default, never
+                 auto-selected. Each entry has its own "Ausführen" button, but
+                 clicking it only opens the confirmation dialog (Teil B7/D) —
+                 nothing here executes directly. ─────────────────────────── -->
             <Expander Header="{Binding Strings.AdvancedOperationsExpand}" IsExpanded="False">
               <StackPanel Margin="0,8,0,0" Spacing="8">
                 <TextBlock Text="{Binding Strings.AdvancedOperationsIntro}"
@@ -228,12 +233,19 @@
                     <DataTemplate>
                       <Border Background="#1a1216" BorderBrush="#4a2020" BorderThickness="1"
                               CornerRadius="6" Padding="10" Margin="0,0,0,6">
-                        <StackPanel Spacing="2">
-                          <TextBlock Text="{Binding Converter={x:Static conv:GitOperationTitleWithRiskConverter.Instance}}"
-                                     FontWeight="SemiBold" FontSize="12" Foreground="#ff8787" />
-                          <TextBlock Text="{Binding Converter={x:Static conv:GitOperationDescriptionConverter.Instance}}" FontSize="11" Foreground="#aa8888" TextWrapping="Wrap" />
-                          <TextBlock Text="{Binding TechnicalCommand}" FontFamily="monospace" FontSize="10" Foreground="#665050" />
-                        </StackPanel>
+                        <Grid ColumnDefinitions="*,Auto">
+                          <StackPanel Grid.Column="0" Spacing="2">
+                            <TextBlock Text="{Binding Converter={x:Static conv:GitOperationTitleWithRiskConverter.Instance}}"
+                                       FontWeight="SemiBold" FontSize="12" Foreground="#ff8787" />
+                            <TextBlock Text="{Binding Converter={x:Static conv:GitOperationDescriptionConverter.Instance}}" FontSize="11" Foreground="#aa8888" TextWrapping="Wrap" />
+                            <TextBlock Text="{Binding TechnicalCommand}" FontFamily="monospace" FontSize="10" Foreground="#665050" />
+                          </StackPanel>
+                          <Button Grid.Column="1" VerticalAlignment="Top" Margin="8,0,0,0"
+                                  Content="{Binding #RootWindow.DataContext.Strings.OperationRunButton}"
+                                  Command="{Binding #RootWindow.DataContext.ExecuteAdvancedOperationCommand}"
+                                  CommandParameter="{Binding}"
+                                  AutomationProperties.Name="{Binding Converter={x:Static conv:GitOperationTitleWithRiskConverter.Instance}}" />
+                        </Grid>
                       </Border>
                     </DataTemplate>
                   </ItemsControl.ItemTemplate>

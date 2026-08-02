@@ -1,0 +1,52 @@
+<Window xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="AI.GitHubManager.App.Views.ConfirmDangerousOperationWindow"
+        Width="560" MinWidth="480" SizeToContent="Height" CanResize="False"
+        WindowStartupLocation="CenterOwner">
+  <StackPanel Margin="20" Spacing="10">
+    <TextBlock x:Name="TitleText" FontSize="18" FontWeight="Bold" TextWrapping="Wrap" />
+
+    <Border Background="#12151c" CornerRadius="8" Padding="12">
+      <StackPanel Spacing="4">
+        <Grid ColumnDefinitions="130,*">
+          <TextBlock Grid.Column="0" x:Name="RepoLabel" Foreground="#74c0fc" FontSize="12" />
+          <TextBlock Grid.Column="1" x:Name="RepoValue" Foreground="#c8d0e0" FontSize="12" TextWrapping="Wrap" />
+        </Grid>
+        <Grid ColumnDefinitions="130,*">
+          <TextBlock Grid.Column="0" x:Name="BranchLabel" Foreground="#74c0fc" FontSize="12" />
+          <TextBlock Grid.Column="1" x:Name="BranchValue" Foreground="#c8d0e0" FontSize="12" />
+        </Grid>
+        <Grid ColumnDefinitions="130,*">
+          <TextBlock Grid.Column="0" x:Name="ScopeLabel" Foreground="#74c0fc" FontSize="12" />
+          <TextBlock Grid.Column="1" x:Name="ScopeValue" Foreground="#c8d0e0" FontSize="12" TextWrapping="Wrap" />
+        </Grid>
+        <Grid ColumnDefinitions="130,*">
+          <TextBlock Grid.Column="0" x:Name="RecoverabilityLabel" Foreground="#ff8787" FontSize="12" />
+          <TextBlock Grid.Column="1" x:Name="RecoverabilityValue" Foreground="#ffb3b3" FontSize="12" TextWrapping="Wrap" />
+        </Grid>
+        <Grid ColumnDefinitions="130,*">
+          <TextBlock Grid.Column="0" x:Name="CommandLabel" Foreground="#5a6b90" FontSize="11" />
+          <TextBlock Grid.Column="1" x:Name="CommandValue" Foreground="#5a6b90" FontFamily="monospace" FontSize="11" />
+        </Grid>
+      </StackPanel>
+    </Border>
+
+    <StackPanel x:Name="TargetRefPanel" Spacing="4" IsVisible="False">
+      <TextBlock x:Name="TargetRefLabel" FontSize="12" FontWeight="SemiBold" />
+      <TextBox x:Name="TargetRefBox" Watermark="z. B. main, HEAD~1, a1b2c3d" />
+    </StackPanel>
+
+    <CheckBox x:Name="UnderstoodCheckBox" IsChecked="False" />
+
+    <StackPanel x:Name="TypedConfirmationPanel" Spacing="4" IsVisible="False">
+      <TextBlock x:Name="TypedConfirmationLabel" FontSize="12" FontWeight="SemiBold" TextWrapping="Wrap" />
+      <TextBox x:Name="TypedConfirmationBox" />
+    </StackPanel>
+
+    <TextBlock x:Name="ErrorText" Foreground="#ff6b6b" FontSize="12" TextWrapping="Wrap" IsVisible="False" />
+
+    <Grid ColumnDefinitions="*,Auto,Auto" Margin="0,8,0,0">
+      <Button Grid.Column="1" x:Name="CancelButton" IsCancel="True" Click="OnCancel" Margin="0,0,8,0" />
+      <Button Grid.Column="2" x:Name="ConfirmButton" IsEnabled="False" IsDefault="False" Click="OnConfirm" />
+    </Grid>
+  </StackPanel>
+</Window>
