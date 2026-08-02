@@ -1,4 +1,4 @@
-name: Release v1.6.2 — Windows and Linux
+name: Release v1.6.2 — Windows, macOS and Linux
 
 on:
   push:
@@ -125,6 +125,181 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
+  macos-packages:
+    name: Package macOS ${{ matrix.arch_label }}
+    needs: verify
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - rid: osx-arm64
+            arch_label: arm64
+          - rid: osx-x64
+            arch_label: x64
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Publish self-contained application
+        run: |
+          dotnet publish "$PROJECT" \
+            -c Release \
+            -r "${{ matrix.rid }}" \
+            --self-contained true \
+            -p:PublishSingleFile=true \
+            -p:IncludeNativeLibrariesForSelfExtract=true \
+            -p:DebugType=None \
+            -p:DebugSymbols=false \
+            -o "artifacts/publish/${{ matrix.rid }}"
+
+      # ── Assemble a real .app bundle ─────────────────────────────────────────
+      # The published output above is a single-file executable plus a few
+      # native Avalonia .dylib files sitting next to it. Finder cannot open a
+      # bare executable as an app, so it must be wrapped in a proper
+      # Contents/{MacOS,Resources}/Info.plist bundle before it is zipped.
+      - name: Assemble AI GitHub Manager.app bundle
+        run: |
+          set -euo pipefail
+          APP="artifacts/appbundle/AI GitHub Manager.app"
+          PUBLISH_DIR="artifacts/publish/${{ matrix.rid }}"
+          rm -rf "artifacts/appbundle"
+          mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
+
+          cp "$PUBLISH_DIR/AI.GitHubManager.App" "$APP/Contents/MacOS/AI.GitHubManager.App"
+          cp "$PUBLISH_DIR/"*.dylib "$APP/Contents/MacOS/" 2>/dev/null || true
+          chmod +x "$APP/Contents/MacOS/AI.GitHubManager.App"
+
+          cp src/AI.GitHubManager.App/Assets/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
+          cp LICENSE "$APP/Contents/Resources/LICENSE.txt"
+
+          cat > "$APP/Contents/Info.plist" <<PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>CFBundleName</key>              <string>AI GitHub Manager</string>
+              <key>CFBundleDisplayName</key>       <string>AI GitHub Manager</string>
+              <key>CFBundleExecutable</key>        <string>AI.GitHubManager.App</string>
+              <key>CFBundleIdentifier</key>        <string>${BUNDLE_ID}</string>
+              <key>CFBundleVersion</key>           <string>${VERSION}</string>
+              <key>CFBundleShortVersionString</key><string>${VERSION}</string>
+              <key>CFBundlePackageType</key>       <string>APPL</string>
+              <key>CFBundleSignature</key>         <string>????</string>
+              <key>CFBundleIconFile</key>          <string>AppIcon.icns</string>
+              <key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
+              <key>LSMinimumSystemVersion</key>    <string>12.0</string>
+              <key>NSHighResolutionCapable</key>   <true/>
+              <key>NSHumanReadableCopyright</key>  <string>© 2026 illeArts</string>
+              <key>NSPrincipalClass</key>          <string>NSApplication</string>
+              <key>LSApplicationCategoryType</key> <string>public.app-category.developer-tools</string>
+          </dict>
+          </plist>
+          PLIST
+
+          plutil -lint "$APP/Contents/Info.plist"
+        env:
+          BUNDLE_ID: com.illearts.AIGitHubManager
+          VERSION: ${{ env.VERSION }}
+
+      # ── Code signing ─────────────────────────────────────────────────────────
+      # Without a Developer ID Application certificate we can only ad-hoc sign
+      # (codesign --sign -). This satisfies Gatekeeper's "is it signed at all"
+      # check well enough to run locally, but it is NOT a Developer ID
+      # signature and the app is NOT notarized — macOS will still show an
+      # "unidentified developer" warning on first launch for other users.
+      #
+      # To add real Developer ID signing + notarization later, add these
+      # repository secrets and uncomment the signing/notarization step below:
+      #   MACOS_CERTIFICATE_P12_BASE64   — base64-encoded Developer ID Application .p12
+      #   MACOS_CERTIFICATE_PASSWORD     — password for the .p12
+      #   MACOS_SIGNING_IDENTITY         — e.g. "Developer ID Application: Your Name (TEAMID)"
+      #   MACOS_NOTARIZATION_APPLE_ID    — Apple ID used for notarization
+      #   MACOS_NOTARIZATION_TEAM_ID     — Apple Developer Team ID
+      #   MACOS_NOTARIZATION_PASSWORD    — app-specific password for notarytool
+      - name: Ad-hoc code signing (placeholder — not a Developer ID signature)
+        run: |
+          codesign --force --deep --sign - "artifacts/appbundle/AI GitHub Manager.app"
+          codesign --verify --deep --strict --verbose=2 "artifacts/appbundle/AI GitHub Manager.app"
+
+      # - name: Import Developer ID certificate
+      #   if: ${{ env.HAS_SIGNING_SECRETS == 'true' }}
+      #   run: |
+      #     echo "${{ secrets.MACOS_CERTIFICATE_P12_BASE64 }}" | base64 --decode > cert.p12
+      #     security create-keychain -p actions build.keychain
+      #     security import cert.p12 -k build.keychain -P "${{ secrets.MACOS_CERTIFICATE_PASSWORD }}" -T /usr/bin/codesign
+      #     security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k actions build.keychain
+      #     codesign --force --deep --options runtime \
+      #       --sign "${{ secrets.MACOS_SIGNING_IDENTITY }}" \
+      #       "artifacts/appbundle/AI GitHub Manager.app"
+      #
+      # - name: Notarize
+      #   if: ${{ env.HAS_SIGNING_SECRETS == 'true' }}
+      #   run: |
+      #     ditto -c -k --sequesterRsrc --keepParent \
+      #       "artifacts/appbundle/AI GitHub Manager.app" notarize.zip
+      #     xcrun notarytool submit notarize.zip \
+      #       --apple-id "${{ secrets.MACOS_NOTARIZATION_APPLE_ID }}" \
+      #       --team-id "${{ secrets.MACOS_NOTARIZATION_TEAM_ID }}" \
+      #       --password "${{ secrets.MACOS_NOTARIZATION_PASSWORD }}" \
+      #       --wait
+      #     xcrun stapler staple "artifacts/appbundle/AI GitHub Manager.app"
+
+      - name: Verify bundle contents (no Windows binaries, correct arch)
+        run: |
+          set -euo pipefail
+          BIN="artifacts/appbundle/AI GitHub Manager.app/Contents/MacOS/AI.GitHubManager.App"
+          file "$BIN"
+          case "${{ matrix.rid }}" in
+            osx-arm64) file "$BIN" | grep -q "arm64" ;;
+            osx-x64)   file "$BIN" | grep -q "x86_64" ;;
+          esac
+          if find "artifacts/appbundle/AI GitHub Manager.app" -iname "*.exe" -o -iname "*.msi" | grep -q .; then
+            echo "::error::Windows binaries found inside the macOS .app bundle"
+            exit 1
+          fi
+
+      # ── Zip with ditto (preserves the bundle correctly; a plain zip of the
+      # loose files is exactly the mistake this workflow exists to fix) ──────
+      - name: Create archive with ditto
+        run: |
+          NAME="AI-GitHub-Manager-v${VERSION}-macos-${{ matrix.arch_label }}.zip"
+          mkdir -p artifacts/dist
+          ditto -c -k --sequesterRsrc --keepParent \
+            "artifacts/appbundle/AI GitHub Manager.app" \
+            "artifacts/dist/$NAME"
+          shasum -a 256 "artifacts/dist/$NAME" | awk -v n="$NAME" '{print $1"  "n}' > "artifacts/dist/$NAME.sha256"
+        env:
+          VERSION: ${{ env.VERSION }}
+
+      - name: Spot-check the archive unpacks to a real .app
+        run: |
+          set -euo pipefail
+          NAME="AI-GitHub-Manager-v${VERSION}-macos-${{ matrix.arch_label }}.zip"
+          rm -rf /tmp/unzip-check && mkdir -p /tmp/unzip-check
+          ditto -x -k "artifacts/dist/$NAME" /tmp/unzip-check
+          test -d "/tmp/unzip-check/AI GitHub Manager.app"
+          test -x "/tmp/unzip-check/AI GitHub Manager.app/Contents/MacOS/AI.GitHubManager.App"
+          spctl --assess --type execute --verbose=4 "/tmp/unzip-check/AI GitHub Manager.app" || \
+            echo "::warning::spctl rejected the ad-hoc signed app (expected without Developer ID + notarization)."
+        env:
+          VERSION: ${{ env.VERSION }}
+
+      - name: Upload macOS package
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-${{ matrix.arch_label }}
+          path: |
+            artifacts/dist/AI-GitHub-Manager-v${{ env.VERSION }}-macos-${{ matrix.arch_label }}.zip
+            artifacts/dist/AI-GitHub-Manager-v${{ env.VERSION }}-macos-${{ matrix.arch_label }}.zip.sha256
+          if-no-files-found: error
+          retention-days: 30
+
   windows-installer:
     name: Build Windows installer
     needs: verify
@@ -196,6 +371,7 @@ jobs:
     name: Update GitHub release
     needs:
       - portable-packages
+      - macos-packages
       - windows-installer
     runs-on: ubuntu-latest
     steps:
