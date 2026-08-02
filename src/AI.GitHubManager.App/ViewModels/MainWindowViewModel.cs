@@ -9,6 +9,7 @@ using AI.GitHubManager.Core.Diagnostics;
 using AI.GitHubManager.Core.EnvironmentRepair;
 using AI.GitHubManager.Core.Git;
 using AI.GitHubManager.Core.GitHub;
+using AI.GitHubManager.Core.Operations;
 using AI.GitHubManager.Core.Process;
 using AI.GitHubManager.Core.Projects;
 using AI.GitHubManager.Core.Remote;
@@ -43,6 +44,7 @@ public sealed class MainWindowViewModel : ViewModelBase
     private bool _canSanitizeRemote;
     private bool _showInstallInnoSetup;
     private bool _canRemoveOrphanedGitLock;
+    private GitOperationDefinition _selectedOperation = GitOperationCatalog.Update;
 
     private RelayCommand[] _allCommands = Array.Empty<RelayCommand>();
 
@@ -96,6 +98,7 @@ public sealed class MainWindowViewModel : ViewModelBase
         var createInstaller  = new RelayCommand(CreateInstallerAsync,       () => !IsBusy);
         var installInnoSetup = new RelayCommand(() => { OpenInnoSetupDownload(); return Task.CompletedTask; }, () => !IsBusy);
         var removeOrphanedGitLock = new RelayCommand(RemoveOrphanedGitLockAsync, () => !IsBusy);
+        var executeSelectedOperation = new RelayCommand(ExecuteSelectedOperationAsync, () => !IsBusy);
 
         CheckEnvironmentCommand     = checkEnv;
         LoadProjectsCommand         = loadProjects;
@@ -120,6 +123,7 @@ public sealed class MainWindowViewModel : ViewModelBase
         CreateInstallerCommand        = createInstaller;
         InstallInnoSetupCommand       = installInnoSetup;
         RemoveOrphanedGitLockCommand  = removeOrphanedGitLock;
+        ExecuteSelectedOperationCommand = executeSelectedOperation;
 
         _allCommands = new[]
         {
@@ -127,8 +131,18 @@ public sealed class MainWindowViewModel : ViewModelBase
             commitPush, refreshScope, setupGit, loginGitHub, installCli,
             pickFolder, addProject, removeProject, importGitHub,
             openUpdate, checkUpdateNow, repairToken, sanitizeRemote, exportDiagnostics,
-            buildTestPush, createInstaller, installInnoSetup, removeOrphanedGitLock
+            buildTestPush, createInstaller, installInnoSetup, removeOrphanedGitLock,
+            executeSelectedOperation
         };
+
+        // Restore the last safely-persisted operation selection (Teil B1/C).
+        // Fault-tolerant: falls back to "Aktualisieren" for missing/unknown/
+        // dangerous stored ids (AppSettingsService.GetSelectedOperationOrDefault).
+        _selectedOperation = _settings.GetSelectedOperationOrDefault();
+
+        // Operation description texts are bilingual fields read at get-time
+        // (L.IsEnglish) — refresh all of them whenever the language changes.
+        L.Changed += RaiseSelectedOperationPropertiesChanged;
 
         RefreshInnoSetupAvailability();
         _ = LoadProjectsAsync();
@@ -162,6 +176,7 @@ public sealed class MainWindowViewModel : ViewModelBase
     public ICommand CreateInstallerCommand        { get; }
     public ICommand InstallInnoSetupCommand       { get; }
     public ICommand RemoveOrphanedGitLockCommand  { get; }
+    public ICommand ExecuteSelectedOperationCommand { get; }
 
     public ManagedProject? SelectedProject
     {
@@ -179,6 +194,80 @@ public sealed class MainWindowViewModel : ViewModelBase
     public string LocalPath     { get => _localPath;     set => SetProperty(ref _localPath, value); }
     public string CommitMessage { get => _commitMessage; set => SetProperty(ref _commitMessage, value); }
     public string Log           { get => _log;           set => SetProperty(ref _log, value); }
+
+    // ── Understandable Git operation model (Teil B1–B5) ─────────────────────
+
+    /// <summary>Normal operations shown in the main dropdown, in a fixed, documented order.</summary>
+    public IReadOnlyList<GitOperationDefinition> AvailableOperations => GitOperationCatalog.NormalOperations;
+
+    /// <summary>
+    /// "Erweiterte Befehle" (Teil B2) — never in the normal dropdown, shown only
+    /// in a separate, collapsed/deactivated area of the UI with extra confirmation.
+    /// </summary>
+    public IReadOnlyList<GitOperationDefinition> AdvancedOperations => GitOperationCatalog.AdvancedOperations;
+
+    /// <summary>
+    /// The currently selected normal operation. Default is "Aktualisieren"
+    /// (Teil B1/C). Setting it persists the choice only when safe to do so
+    /// (Teil B7/C) — dangerous/advanced operations never live in this
+    /// property in the first place, since they aren't part of
+    /// <see cref="AvailableOperations"/>.
+    /// </summary>
+    public GitOperationDefinition SelectedOperation
+    {
+        get => _selectedOperation;
+        set
+        {
+            if (!SetProperty(ref _selectedOperation, value)) return;
+
+            if (_settings.SetSelectedOperationIfSafe(value))
+                _settings.Save();
+
+            RaiseSelectedOperationPropertiesChanged();
+        }
+    }
+
+    private void RaiseSelectedOperationPropertiesChanged()
+    {
+        // Re-raising the collections (not just the description texts) makes
+        // Avalonia rebuild the dropdown's items, which is what makes the
+        // GitOperationTitleConverter re-evaluate for every entry — keeping
+        // the dropdown list itself, not just the panel below it, in sync
+        // with the selected language.
+        OnPropertyChanged(nameof(AvailableOperations));
+        OnPropertyChanged(nameof(AdvancedOperations));
+        OnPropertyChanged(nameof(SelectedOperationTitle));
+        OnPropertyChanged(nameof(SelectedOperationDescription));
+        OnPropertyChanged(nameof(SelectedOperationSuitableFor));
+        OnPropertyChanged(nameof(SelectedOperationWhatChanges));
+        OnPropertyChanged(nameof(SelectedOperationWhatStays));
+        OnPropertyChanged(nameof(SelectedOperationRisk));
+        OnPropertyChanged(nameof(SelectedOperationRiskLevelText));
+        OnPropertyChanged(nameof(SelectedOperationCommand));
+    }
+
+    // Explanation panel shown directly under the dropdown (Teil B4) — always
+    // derived from the single GitOperationDefinition source of truth, never
+    // duplicated as separate hard-coded strings.
+    public string SelectedOperationTitle       => SelectedOperation.Title(L.IsEnglish);
+    public string SelectedOperationDescription => SelectedOperation.Description(L.IsEnglish);
+    public string SelectedOperationSuitableFor => SelectedOperation.SuitableFor(L.IsEnglish);
+    public string SelectedOperationWhatChanges => SelectedOperation.WhatChanges(L.IsEnglish);
+    public string SelectedOperationWhatStays   => SelectedOperation.WhatStays(L.IsEnglish);
+    public string SelectedOperationRisk        => SelectedOperation.Risk(L.IsEnglish);
+    public string SelectedOperationCommand     => SelectedOperation.TechnicalCommand;
+
+    public string SelectedOperationRiskLevelText => RiskLevelText(SelectedOperation.RiskLevel);
+
+    /// <summary>Risk level as visible text (Teil B5 — never color-only).</summary>
+    public static string RiskLevelText(GitOperationRiskLevel level) => level switch
+    {
+        GitOperationRiskLevel.Safe      => L.T("Sicher",     "Safe"),
+        GitOperationRiskLevel.Caution   => L.T("Vorsicht",   "Caution"),
+        GitOperationRiskLevel.Advanced  => L.T("Erweitert",  "Advanced"),
+        GitOperationRiskLevel.Dangerous => L.T("Gefährlich", "Dangerous"),
+        _ => L.T("Unbekannt", "Unknown"),
+    };
 
     /// <summary>Non-empty when a newer release is available. Bound to the update banner.</summary>
     public string UpdateNotice
@@ -296,6 +385,43 @@ public sealed class MainWindowViewModel : ViewModelBase
         SelectedProject.UpdatedAt = DateTimeOffset.UtcNow;
         await _store.SaveAsync(Projects);
         Log = L.T("Projekt gespeichert.", "Project saved.");
+    }
+
+    /// <summary>
+    /// Runs the currently selected operation from the dropdown (Teil B1).
+    /// Only the operations already wired to a real, tested command in this
+    /// milestone (Status, Aktualisieren, Commit erstellen und hochladen —
+    /// see <see cref="GitOperationDefinition.IsExecutable"/>) actually run
+    /// something; everything else in the model exists as a fully described
+    /// entry but reports plainly that execution follows in a later
+    /// milestone (Vorabprüfungen/Schutzmechanismen), rather than silently
+    /// doing nothing or pretending to run.
+    /// </summary>
+    private async Task ExecuteSelectedOperationAsync()
+    {
+        var operation = SelectedOperation;
+
+        switch (operation.Id)
+        {
+            case "status":
+                await GitStatusAsync();
+                return;
+            case "update":
+                await PullAsync();
+                return;
+            case "commit-and-upload":
+                await CommitPushAsync();
+                return;
+        }
+
+        Log = L.T(
+            $"„{operation.TitleDe}\" ({operation.TechnicalCommand}) ist beschrieben, aber in diesem " +
+            "Meilenstein noch nicht ausführbar. Vorabprüfungen und die technische Ausführung folgen in " +
+            "einem späteren Schritt. Nutze für die bereits vorhandenen Aktionen die Schaltflächen " +
+            "\"Status\", \"Aktualisieren\" bzw. \"Commit erstellen und hochladen\".",
+            $"\"{operation.TitleEn}\" ({operation.TechnicalCommand}) is described but not yet executable " +
+            "in this milestone. Preflight checks and technical execution follow in a later step. Use the " +
+            "existing \"Status\", \"Update\", or \"Create commit and upload\" actions for now.");
     }
 
     private async Task GitStatusAsync()

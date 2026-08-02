@@ -65,6 +65,23 @@ public sealed class LocalizedStrings : INotifyPropertyChanged
 
     public string OutputHeader      => L.T("Ausgabe / Fehleranalyse","Output / Diagnostics");
 
+    // ── Understandable Git operation model (Teil B1–B5) ──────────────────────
+    public string OperationSectionHeader => L.T("Verständlicher Vorgang", "Understandable operation");
+    public string OperationDropdownLabel => L.T("Was möchtest du tun?", "What would you like to do?");
+    public string OperationRunButton     => L.T("Ausführen", "Run");
+    public string OperationSuitableForLabel => L.T("Geeignet für:", "Suitable for:");
+    public string OperationWhatChangesLabel => L.T("Was wird verändert?", "What changes?");
+    public string OperationWhatStaysLabel   => L.T("Was bleibt unverändert?", "What stays the same?");
+    public string OperationRiskLabel        => L.T("Mögliches Risiko:", "Possible risk:");
+    public string OperationRiskLevelLabel   => L.T("Risikostufe:", "Risk level:");
+    public string OperationCommandLabel     => L.T("Technischer Befehl:", "Technical command:");
+
+    public string AdvancedOperationsHeader  => L.T("Erweiterte Befehle", "Advanced commands");
+    public string AdvancedOperationsIntro   => L.T(
+        "Für erfahrene Git-Nutzer. Diese Vorgänge können Historie umschreiben oder Daten unwiderruflich löschen und sind absichtlich standardmäßig eingeklappt und nicht ausführbar.",
+        "For experienced Git users. These operations can rewrite history or irreversibly delete data, and are deliberately collapsed and not executable by default.");
+    public string AdvancedOperationsExpand  => L.T("Erweiterte Befehle anzeigen", "Show advanced commands");
+
     // ── Menu (used in code-behind ApplyMenuStrings) ───────────────────────────
     public string MenuSettingsHeader => L.T("_Einstellungen",       "_Settings");
     public string MenuHelpHeader     => L.T("_Hilfe",               "_Help");

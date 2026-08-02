@@ -1,4 +1,5 @@
 using System.Text.Json;
+using AI.GitHubManager.Core.Operations;
 
 namespace AI.GitHubManager.App.Services;
 
@@ -22,6 +23,44 @@ public sealed class AppSettingsService
     /// instead (no automatic stash/backup is created).
     /// </summary>
     public bool SafePullEnabled { get; set; } = true;
+
+    /// <summary>
+    /// Id of the last selected normal Git operation (Teil B1/C). Only ever
+    /// set to an operation whose risk level is Safe or Caution — see
+    /// <see cref="SetSelectedOperationIfSafe"/>. Dangerous or Advanced
+    /// operations are never persisted as the next default (Teil B7/C).
+    /// </summary>
+    public string SelectedOperationId { get; set; } = GitOperationCatalog.DefaultOperationId;
+
+    /// <summary>
+    /// Returns the persisted operation, falling back to the default
+    /// ("Aktualisieren") when the stored id is missing, unknown (e.g. from
+    /// an older or corrupted settings file), or — defensively — refers to a
+    /// dangerous/advanced operation that should never have been stored.
+    /// Fault-tolerant loading of old/invalid settings (Teil A1).
+    /// </summary>
+    public GitOperationDefinition GetSelectedOperationOrDefault()
+    {
+        var found = GitOperationCatalog.Find(SelectedOperationId);
+        if (found is not null && GitOperationCatalog.IsSafeToPersistAsDefault(found))
+            return found;
+
+        return GitOperationCatalog.Update;
+    }
+
+    /// <summary>
+    /// Stores the selection only if it is safe to come back automatically
+    /// next time (Teil B7/C: "Gefährliche Vorgänge dürfen niemals als
+    /// letzte automatische Standardauswahl wiederhergestellt werden").
+    /// Selecting a dangerous or advanced operation simply isn't remembered —
+    /// the previous safe selection (or the default) stays persisted.
+    /// </summary>
+    public bool SetSelectedOperationIfSafe(GitOperationDefinition operation)
+    {
+        if (!GitOperationCatalog.IsSafeToPersistAsDefault(operation)) return false;
+        SelectedOperationId = operation.Id;
+        return true;
+    }
 
     // ── Persistence ───────────────────────────────────────────────────────────
 
