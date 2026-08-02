@@ -1,9 +1,9 @@
 # AI GitHub Manager v1.6.3
 
-**Entwurf — Meilensteine 1–5 vollständig implementiert, gebaut und getestet,
-inklusive echtem macOS-arm64-Laufzeittest auf einem echten Mac. Noch NICHT
-release-fertig: die Developer-ID-Signierung/Notarisierung für macOS steht
-noch aus (siehe „Bekannte Einschränkungen").
+**Release v1.6.3** — Meilensteine 1–5 sind vollständig implementiert, gebaut
+und getestet, einschließlich eines echten macOS-arm64-Laufzeittests auf einem
+Mac. Die macOS-Pakete sind ad-hoc signiert; Developer-ID-Signierung und
+Notarisierung bleiben als bekannte Einschränkung offen.
 
 AI GitHub Manager 1.6.3 bringt macOS und Linux auf Funktionsparität mit Windows
 (Einstellungen, Benutzerhandbuch/Hilfe, Über-Dialog) und macht die Git-Bedienung
@@ -11,9 +11,11 @@ für Einsteiger verständlicher: benannte Vorgänge mit Risikostufen, Vorabprüf
 lesbare Erfolgs-/Fehlermeldungen — bei vollem Zugriff auf die technischen
 Originalausgaben.
 
-## Empfohlener Download
+## Downloads
 
-_Wird nach Abschluss der Builds ergänzt._
+Die Release-Assets enthalten Pakete für Windows x64, Linux x64 sowie macOS
+auf Apple Silicon (arm64) und Intel-Macs (x64). Die jeweiligen SHA-256-Dateien
+stehen zur Integritätsprüfung neben den Archiven bereit.
 
 ## Neu in 1.6.3
 
