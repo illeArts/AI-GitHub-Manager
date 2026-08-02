@@ -34,6 +34,54 @@ public partial class HelpWindow : Window
         Qs5.Text = L.T("5. Status / Pull / Commit + Push nutzen um das Repository zu verwalten.",
                        "5. Use Status / Pull / Commit + Push to manage your repository.");
 
+        // Git basics for beginners (Teil A2 minimum: Commit/Push/Pull/Fetch, Branches, Konflikte)
+        BasicsHeader.Text = L.T("Git-Grundlagen für Einsteiger", "Git basics for beginners");
+        BasicsIntro.Text = L.T(
+            "Git speichert die Historie deines Projekts in \"Commits\". Ein Repository kann lokal auf " +
+            "deinem Rechner liegen und zusätzlich auf GitHub (\"Remote\") existieren. Die folgenden vier " +
+            "Begriffe tauchen in fast jeder Git-Aktion auf:",
+            "Git stores your project's history as \"commits\". A repository can exist locally on your " +
+            "machine and additionally on GitHub (the \"remote\"). The following four terms show up in " +
+            "almost every Git action:");
+
+        BasicsCommitLabel.Text = L.T("Commit", "Commit");
+        BasicsCommit.Text = L.T(
+            "Hält deine aktuellen Änderungen lokal als neuen Punkt in der Historie fest. Noch nicht auf GitHub sichtbar.",
+            "Records your current changes locally as a new point in the history. Not yet visible on GitHub.");
+
+        BasicsPushLabel.Text = L.T("Push", "Push");
+        BasicsPush.Text = L.T(
+            "Lädt deine lokalen Commits zu GitHub hoch, damit andere (und du selbst auf anderen Rechnern) sie sehen können.",
+            "Uploads your local commits to GitHub so others (and you on other machines) can see them.");
+
+        BasicsPullLabel.Text = L.T("Pull", "Pull");
+        BasicsPull.Text = L.T(
+            "Lädt neue Commits von GitHub herunter und verbindet sie mit deinem lokalen Stand — die übliche " +
+            "Kombination aus \"herunterladen\" und \"einfügen\".",
+            "Downloads new commits from GitHub and integrates them into your local state — the usual " +
+            "combination of \"download\" and \"apply\".");
+
+        BasicsFetchLabel.Text = L.T("Fetch", "Fetch");
+        BasicsFetch.Text = L.T(
+            "Lädt nur Informationen von GitHub herunter, ohne deine Arbeitsdateien zu verändern. Zeigt dir, " +
+            "ob es Neuigkeiten gibt, ohne etwas zu übernehmen.",
+            "Only downloads information from GitHub without changing your working files. Shows you whether " +
+            "there's anything new, without applying it.");
+
+        BasicsBranchLabel.Text = L.T("Branch", "Branch");
+        BasicsBranch.Text = L.T(
+            "Ein paralleler Arbeitsbereich innerhalb desselben Repositorys. Der Standard-Branch heißt meist " +
+            "\"main\". Mit eigenen Branches kannst du an etwas arbeiten, ohne main sofort zu verändern.",
+            "A parallel line of work within the same repository. The default branch is usually called " +
+            "\"main\". Your own branches let you work on something without changing main right away.");
+
+        BasicsConflictLabel.Text = L.T("Konflikt", "Conflict");
+        BasicsConflict.Text = L.T(
+            "Entsteht, wenn dieselbe Stelle einer Datei lokal und auf GitHub unterschiedlich geändert wurde. " +
+            "Git kann das dann nicht automatisch zusammenführen und fragt nach — dabei geht nichts verloren.",
+            "Happens when the same part of a file was changed differently both locally and on GitHub. Git " +
+            "then can't merge automatically and asks for input — nothing is lost in the process.");
+
         // Commands
         CmdHeader.Text = L.T("Befehle", "Commands");
         CmdStatus.Text = L.T("Zeigt Branch, Remote-URL und alle geänderten Dateien.",
@@ -163,5 +211,8 @@ public partial class HelpWindow : Window
                              "Credentials are stored in the OS secure credential store (Keychain / Windows Credential Manager).");
         SecLine4.Text  = L.T("git push --force wird niemals automatisch ausgeführt. Bei Konflikten bricht die App ab.",
                              "git push --force is never executed automatically. On conflicts the app stops and reports.");
+
+        VersionReferenceText.Text = L.T("Stand: AI GitHub Manager Version 1.6.3",
+                                        "As of: AI GitHub Manager version 1.6.3");
     }
 }

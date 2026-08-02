@@ -2,7 +2,7 @@
 ; Built by GitHub Actions with Inno Setup 6.
 
 #define AppName "AI GitHub Manager"
-#define AppVersion "1.6.2"
+#define AppVersion "1.6.3"
 #define AppPublisher "illeArts"
 #define AppURL "https://github.com/illeArts/AI-GitHub-Manager"
 #define AppExeName "AI.GitHubManager.App.exe"

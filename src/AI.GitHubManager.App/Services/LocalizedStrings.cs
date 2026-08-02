@@ -74,8 +74,28 @@ public sealed class LocalizedStrings : INotifyPropertyChanged
     // ── About window ──────────────────────────────────────────────────────────
     public string AboutTitle       => L.T("Über", "About");
     public string AboutDescription => L.T(
-        "AI GitHub Manager — sicheres, einfaches GitHub-Management für alle deine Projekte. Push, Pull, Diagnose und GitHub CLI-Setup auf einen Klick. Läuft auf Windows und macOS.",
-        "AI GitHub Manager — secure, simple GitHub management for all your projects. Push, Pull, diagnostics, and GitHub CLI setup at the click of a button. Runs on Windows and macOS.");
+        "AI GitHub Manager — sicheres, einfaches GitHub-Management für alle deine Projekte. Push, Pull, Diagnose und GitHub CLI-Setup auf einen Klick. Läuft auf Windows, macOS und Linux.",
+        "AI GitHub Manager — secure, simple GitHub management for all your projects. Push, Pull, diagnostics, and GitHub CLI setup at the click of a button. Runs on Windows, macOS and Linux.");
+
+    public string AboutVersionLabel      => L.T("Version",              "Version");
+    public string AboutBuildLabel        => L.T("Build",                "Build");
+    public string AboutCommitLabel       => L.T("Commit",               "Commit");
+    public string AboutOsLabel           => L.T("Betriebssystem",       "Operating System");
+    public string AboutArchLabel         => L.T("Architektur",          "Architecture");
+    public string AboutDotnetLabel       => L.T(".NET-Version",         ".NET Version");
+    public string AboutLicenseLabel      => L.T("Lizenz",               "License");
+    public string AboutLicenseValue      => L.T(
+        "Alle Rechte vorbehalten — siehe LICENSE-Datei",
+        "All rights reserved — see LICENSE file");
+    public string AboutCopyright         => L.T("© 2026 André Iljaschow / illeArts. Alle Rechte vorbehalten.",
+                                                "© 2026 André Iljaschow / illeArts. All rights reserved.");
+    public string AboutGitHubLinkLabel   => L.T("GitHub-Projekt öffnen", "Open GitHub project");
+    public string AboutPrivacyNotice     => L.T(
+        "Datenschutz: Diese App speichert keine GitHub-Tokens oder Passwörter. Authentifizierung läuft ausschließlich über die offizielle GitHub CLI (gh) und den sicheren Credential Store des Betriebssystems.",
+        "Privacy: This app never stores GitHub tokens or passwords. Authentication runs exclusively through the official GitHub CLI (gh) and the operating system's secure credential store.");
+    public string AboutNotGitHubProduct  => L.T(
+        "Kein Produkt von GitHub, Inc. oder Microsoft Corporation.",
+        "Not a product of GitHub, Inc. or Microsoft Corporation.");
 
     // ── Export window (Clean Export) ──────────────────────────────────────────
     public string ExportWindowTitle    => L.T("Projekt exportieren · Clean Export", "Export project · Clean Export");

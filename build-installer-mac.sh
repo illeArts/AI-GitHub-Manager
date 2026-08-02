@@ -15,7 +15,7 @@
 set -euo pipefail
 
 APP_NAME="AI GitHub Manager"
-APP_VERSION="1.6.2"
+APP_VERSION="1.6.3"
 BUNDLE_ID="com.illearts.AIGitHubManager"
 PROJECT="src/AI.GitHubManager.App/AI.GitHubManager.App.csproj"
 DIST_DIR="dist"

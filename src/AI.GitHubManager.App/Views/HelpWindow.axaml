@@ -37,6 +37,37 @@
           </StackPanel>
         </Border>
 
+        <!-- ── Git basics for beginners ───────────────── -->
+        <TextBlock x:Name="BasicsHeader"
+                   FontSize="15" FontWeight="SemiBold"
+                   Foreground="#4dabf7" Margin="0,0,0,10" />
+
+        <Border Background="#181c24" CornerRadius="10" Padding="16" Margin="0,0,0,20">
+          <StackPanel Spacing="12">
+            <TextBlock x:Name="BasicsIntro" Foreground="#c8d0e0" FontSize="13" TextWrapping="Wrap" />
+
+            <Grid ColumnDefinitions="110,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto">
+              <TextBlock Grid.Row="0" Grid.Column="0" x:Name="BasicsCommitLabel" Foreground="#74c0fc" FontWeight="SemiBold" FontSize="13" />
+              <TextBlock Grid.Row="0" Grid.Column="1" x:Name="BasicsCommit" Foreground="#aabbcc" FontSize="13" TextWrapping="Wrap" Margin="0,0,0,10" />
+
+              <TextBlock Grid.Row="1" Grid.Column="0" x:Name="BasicsPushLabel" Foreground="#74c0fc" FontWeight="SemiBold" FontSize="13" />
+              <TextBlock Grid.Row="1" Grid.Column="1" x:Name="BasicsPush" Foreground="#aabbcc" FontSize="13" TextWrapping="Wrap" Margin="0,0,0,10" />
+
+              <TextBlock Grid.Row="2" Grid.Column="0" x:Name="BasicsPullLabel" Foreground="#74c0fc" FontWeight="SemiBold" FontSize="13" />
+              <TextBlock Grid.Row="2" Grid.Column="1" x:Name="BasicsPull" Foreground="#aabbcc" FontSize="13" TextWrapping="Wrap" Margin="0,0,0,10" />
+
+              <TextBlock Grid.Row="3" Grid.Column="0" x:Name="BasicsFetchLabel" Foreground="#74c0fc" FontWeight="SemiBold" FontSize="13" />
+              <TextBlock Grid.Row="3" Grid.Column="1" x:Name="BasicsFetch" Foreground="#aabbcc" FontSize="13" TextWrapping="Wrap" Margin="0,0,0,10" />
+
+              <TextBlock Grid.Row="4" Grid.Column="0" x:Name="BasicsBranchLabel" Foreground="#74c0fc" FontWeight="SemiBold" FontSize="13" />
+              <TextBlock Grid.Row="4" Grid.Column="1" x:Name="BasicsBranch" Foreground="#aabbcc" FontSize="13" TextWrapping="Wrap" Margin="0,0,0,10" />
+
+              <TextBlock Grid.Row="5" Grid.Column="0" x:Name="BasicsConflictLabel" Foreground="#74c0fc" FontWeight="SemiBold" FontSize="13" />
+              <TextBlock Grid.Row="5" Grid.Column="1" x:Name="BasicsConflict" Foreground="#aabbcc" FontSize="13" TextWrapping="Wrap" />
+            </Grid>
+          </StackPanel>
+        </Border>
+
         <!-- ── Commands ───────────────────────────────── -->
         <TextBlock x:Name="CmdHeader"
                    FontSize="15" FontWeight="SemiBold"
@@ -172,6 +203,12 @@
 
           </StackPanel>
         </Border>
+
+        <!-- ── Version reference ─────────────────────── -->
+        <TextBlock x:Name="VersionReferenceText"
+                   Foreground="#445566" FontSize="11"
+                   HorizontalAlignment="Center"
+                   Margin="0,0,0,8" />
 
       </StackPanel>
     </ScrollViewer>

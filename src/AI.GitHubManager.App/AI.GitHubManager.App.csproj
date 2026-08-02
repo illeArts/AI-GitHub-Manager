@@ -5,10 +5,10 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>AI.GitHubManager.App</AssemblyName>
     <RootNamespace>AI.GitHubManager.App</RootNamespace>
-    <Version>1.6.2</Version>
-    <AssemblyVersion>1.6.2.0</AssemblyVersion>
-    <FileVersion>1.6.2.0</FileVersion>
-    <InformationalVersion>1.6.2</InformationalVersion>
+    <Version>1.6.3</Version>
+    <AssemblyVersion>1.6.3.0</AssemblyVersion>
+    <FileVersion>1.6.3.0</FileVersion>
+    <InformationalVersion>1.6.3</InformationalVersion>
   </PropertyGroup>
 
   <!-- Windows: suppress console window, add manifest, COM support, and .ico -->
@@ -29,8 +29,8 @@
     <CFBundleName>AI GitHub Manager</CFBundleName>
     <CFBundleDisplayName>AI GitHub Manager</CFBundleDisplayName>
     <CFBundleIdentifier>com.illearts.AIGitHubManager</CFBundleIdentifier>
-    <CFBundleVersion>1.6.2</CFBundleVersion>
-    <CFBundleShortVersionString>1.6.2</CFBundleShortVersionString>
+    <CFBundleVersion>1.6.3</CFBundleVersion>
+    <CFBundleShortVersionString>1.6.3</CFBundleShortVersionString>
     <NSHumanReadableCopyright>© 2026 illeArts</NSHumanReadableCopyright>
   </PropertyGroup>
 
@@ -58,4 +58,28 @@
   <ItemGroup>
     <InternalsVisibleTo Include="AI.GitHubManager.Tests" />
   </ItemGroup>
+
+  <!-- Embed the short git commit hash as assembly metadata for the About dialog
+       (Teil A3). Falls back to "unknown" when building from a source archive
+       without a .git directory, or when git isn't on PATH — never fails the build. -->
+  <Target Name="EmbedGitCommitHash" BeforeTargets="CoreCompile">
+    <Exec Command="git rev-parse --short HEAD"
+          ConsoleToMSBuild="true"
+          IgnoreExitCode="true"
+          StandardOutputImportance="low"
+          EchoOff="true">
+      <Output TaskParameter="ConsoleOutput" PropertyName="GitCommitHashRaw" />
+      <Output TaskParameter="ExitCode" PropertyName="GitCommitHashExitCode" />
+    </Exec>
+    <PropertyGroup>
+      <GitCommitHash Condition="'$(GitCommitHashExitCode)' == '0' AND '$(GitCommitHashRaw)' != ''">$(GitCommitHashRaw)</GitCommitHash>
+      <GitCommitHash Condition="'$(GitCommitHash)' == ''">unknown</GitCommitHash>
+    </PropertyGroup>
+    <ItemGroup>
+      <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+        <_Parameter1>GitCommitHash</_Parameter1>
+        <_Parameter2>$(GitCommitHash)</_Parameter2>
+      </AssemblyAttribute>
+    </ItemGroup>
+  </Target>
 </Project>

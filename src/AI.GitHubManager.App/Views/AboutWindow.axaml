@@ -1,7 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Class="AI.GitHubManager.App.Views.AboutWindow"
-        Width="440" Height="660"
+        Width="460" Height="900"
         CanResize="False"
         SystemDecorations="None"
         WindowStartupLocation="CenterOwner"
@@ -89,7 +89,75 @@
         <TextBlock x:Name="VersionText"
                    FontSize="12" Foreground="#5a6b90"
                    HorizontalAlignment="Center"
-                   Margin="0,0,0,8" />
+                   Margin="0,0,0,14" />
+
+        <!-- Divider -->
+        <Rectangle Height="1" Fill="#1a2540" Margin="0,0,0,14" />
+
+        <!-- Build metadata grid -->
+        <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto"
+              Margin="0,0,0,14">
+          <Grid.Styles>
+            <Style Selector="TextBlock.metaLabel">
+              <Setter Property="Foreground" Value="#5a6b90" />
+              <Setter Property="FontSize" Value="12" />
+              <Setter Property="Margin" Value="0,0,10,6" />
+            </Style>
+            <Style Selector="TextBlock.metaValue">
+              <Setter Property="Foreground" Value="#c8d2e8" />
+              <Setter Property="FontSize" Value="12" />
+              <Setter Property="Margin" Value="0,0,0,6" />
+              <Setter Property="TextWrapping" Value="Wrap" />
+            </Style>
+          </Grid.Styles>
+
+          <TextBlock x:Name="BuildLabel"  Grid.Row="0" Grid.Column="0" Classes="metaLabel" />
+          <TextBlock x:Name="BuildValue"  Grid.Row="0" Grid.Column="1" Classes="metaValue" />
+
+          <TextBlock x:Name="CommitLabel" Grid.Row="1" Grid.Column="0" Classes="metaLabel" />
+          <TextBlock x:Name="CommitValue" Grid.Row="1" Grid.Column="1" Classes="metaValue" FontFamily="monospace" />
+
+          <TextBlock x:Name="OsLabel"     Grid.Row="2" Grid.Column="0" Classes="metaLabel" />
+          <TextBlock x:Name="OsValue"     Grid.Row="2" Grid.Column="1" Classes="metaValue" />
+
+          <TextBlock x:Name="ArchLabel"   Grid.Row="3" Grid.Column="0" Classes="metaLabel" />
+          <TextBlock x:Name="ArchValue"   Grid.Row="3" Grid.Column="1" Classes="metaValue" />
+
+          <TextBlock x:Name="DotnetLabel" Grid.Row="4" Grid.Column="0" Classes="metaLabel" />
+          <TextBlock x:Name="DotnetValue" Grid.Row="4" Grid.Column="1" Classes="metaValue" />
+
+          <TextBlock x:Name="LicenseLabel" Grid.Row="5" Grid.Column="0" Classes="metaLabel" />
+          <TextBlock x:Name="LicenseValue" Grid.Row="5" Grid.Column="1" Classes="metaValue" />
+        </Grid>
+
+        <!-- Divider -->
+        <Rectangle Height="1" Fill="#1a2540" Margin="0,0,0,14" />
+
+        <!-- GitHub link -->
+        <Button x:Name="GitHubLinkButton"
+                Click="OnGitHubLinkClick"
+                Background="Transparent"
+                Foreground="#4dabf7"
+                BorderThickness="0"
+                HorizontalAlignment="Center"
+                Cursor="Hand"
+                Margin="0,0,0,14" />
+
+        <!-- Privacy notice -->
+        <TextBlock x:Name="PrivacyText" TextWrapping="Wrap" TextAlignment="Center"
+                   Foreground="#4a5a7a" FontSize="11"
+                   LineHeight="16"
+                   Margin="0,0,0,10" />
+
+        <!-- Not a GitHub/Microsoft product -->
+        <TextBlock x:Name="NotGitHubProductText" TextWrapping="Wrap" TextAlignment="Center"
+                   Foreground="#3a4a6a" FontSize="11" FontStyle="Italic"
+                   Margin="0,0,0,10" />
+
+        <!-- Copyright -->
+        <TextBlock x:Name="CopyrightText" TextWrapping="Wrap" TextAlignment="Center"
+                   Foreground="#3a4a6a" FontSize="11"
+                   Margin="0,0,0,0" />
       </StackPanel>
     </Grid>
   </Border>
