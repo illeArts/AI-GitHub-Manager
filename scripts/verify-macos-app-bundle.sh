@@ -99,6 +99,9 @@ PLIST
   fi
   ok "No Windows binaries"
 
+  log "Stripping extended attributes (resource forks / Finder info block codesign) ..."
+  xattr -cr "$APP"
+
   log "Ad-hoc code signing (NOT a Developer ID signature, NOT notarized) ..."
   codesign --force --deep --sign - "$APP"
   codesign --verify --deep --strict --verbose=2 "$APP" && ok "codesign --verify passed"

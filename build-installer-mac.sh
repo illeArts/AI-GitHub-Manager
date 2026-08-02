@@ -135,7 +135,11 @@ PLIST
     # Ad-hoc sign so the bundle at least passes a basic codesign verification
     # locally. This is NOT a Developer ID signature and is NOT notarized —
     # see RELEASE_NOTES / scripts/verify-macos-app-bundle.sh for details.
+    # xattr -cr is required first: any stray resource-fork/Finder-info
+    # extended attribute on a copied file makes codesign fail hard with
+    # "resource fork, Finder information, or similar detritus not allowed".
     if command -v codesign &>/dev/null; then
+        command -v xattr &>/dev/null && xattr -cr "$APP_BUNDLE"
         codesign --force --deep --sign - "$APP_BUNDLE"
     fi
 

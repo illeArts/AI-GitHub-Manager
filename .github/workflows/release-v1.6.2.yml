@@ -224,6 +224,10 @@ jobs:
       #   MACOS_NOTARIZATION_PASSWORD    — app-specific password for notarytool
       - name: Ad-hoc code signing (placeholder — not a Developer ID signature)
         run: |
+          # xattr -cr first: a stray resource-fork/Finder-info extended
+          # attribute on any copied file makes codesign fail hard with
+          # "resource fork, Finder information, or similar detritus not allowed".
+          xattr -cr "artifacts/appbundle/AI GitHub Manager.app"
           codesign --force --deep --sign - "artifacts/appbundle/AI GitHub Manager.app"
           codesign --verify --deep --strict --verbose=2 "artifacts/appbundle/AI GitHub Manager.app"
 
