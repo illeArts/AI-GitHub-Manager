@@ -227,26 +227,35 @@ jobs:
           set -euo pipefail
           APP="artifacts/appbundle/AI GitHub Manager.app"
           # A stray resource-fork/Finder-info extended attribute on any file
-          # (or on the bundle directory itself, which Finder/Spotlight can
-          # (re-)tag with a "has custom icon" flag the instant it notices a
-          # .app bundle) makes codesign fail hard with "resource fork,
-          # Finder information, or similar detritus not allowed". One strip
-          # is not always enough if something re-tags it in between, so
-          # retry the strip+sign pair a few times.
-          SIGN_OK=0
-          for attempt in 1 2 3 4 5; do
-            xattr -cr "$APP"
-            find "$APP" -exec xattr -c {} \; 2>/dev/null || true
-            if codesign --force --deep --sign - "$APP" 2>/tmp/codesign-err.log; then
-              SIGN_OK=1
-              break
-            fi
-            grep -q "resource fork\|FinderInfo\|detritus" /tmp/codesign-err.log || { cat /tmp/codesign-err.log >&2; exit 1; }
-            echo "codesign attempt $attempt hit a stray Finder attribute — retrying ..."
-            sleep 1
-          done
-          [[ "$SIGN_OK" == "1" ]] || { echo "::error::codesign kept failing on extended attributes after 5 attempts."; exit 1; }
-          codesign --verify --deep --strict --verbose=2 "$APP"
+          # (or on the bundle directory itself, which LaunchServices/Icon
+          # Services can (re-)tag with a "has custom icon" flag the instant
+          # it notices a .app bundle — this can happen *after* a successful
+          # codesign --sign and make the very next codesign --verify fail)
+          # makes codesign refuse with "resource fork, Finder information,
+          # or similar detritus not allowed". Audit, strip, sign, audit
+          # again, targeted re-strip of FinderInfo if it reappeared, then
+          # verify — never proceed past a failure.
+          echo "Extended attributes before cleanup:"
+          xattr -lr "$APP" 2>/dev/null || true
+
+          xattr -cr "$APP" 2>/dev/null || true
+          find "$APP" -exec xattr -c {} \; 2>/dev/null || true
+          if xattr -lr "$APP" 2>/dev/null | grep -q .; then
+            xattr -lr "$APP"
+            echo "::error::Extended attributes remain on the bundle after stripping."
+            exit 1
+          fi
+
+          codesign --force --deep --sign - "$APP"
+
+          if xattr -lr "$APP" 2>/dev/null | grep -q "com.apple.FinderInfo"; then
+            echo "com.apple.FinderInfo reappeared after signing — removing it and re-signing once ..."
+            xattr -d com.apple.FinderInfo "$APP" 2>/dev/null || true
+            find "$APP" -exec xattr -d com.apple.FinderInfo {} \; 2>/dev/null || true
+            codesign --force --deep --sign - "$APP"
+          fi
+
+          codesign --verify --deep --strict --verbose=4 "$APP"
 
       # - name: Import Developer ID certificate
       #   if: ${{ env.HAS_SIGNING_SECRETS == 'true' }}

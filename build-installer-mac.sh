@@ -83,25 +83,27 @@ for RID in "${RIDS[@]}"; do
 
     # Binary — keep the real assembly name so update checks / diagnostics
     # that shell out to "AI.GitHubManager.App" keep working inside the bundle.
+    # cp -X: never copy extended attributes from the source file, so nothing
+    # can be inherited from the repo checkout into the freshly built bundle.
     BINARY=$(find "$OUT_DIR" -maxdepth 1 -name "AI.GitHubManager.App" -type f | head -1)
     [[ -z "$BINARY" ]] && err "Could not find the published binary in $OUT_DIR"
-    cp "$BINARY" "$MACOS_DIR/AI.GitHubManager.App"
+    cp -X "$BINARY" "$MACOS_DIR/AI.GitHubManager.App"
     chmod +x "$MACOS_DIR/AI.GitHubManager.App"
 
     # Native Avalonia libraries must sit next to the executable to be found.
     for dylib in "$OUT_DIR"/*.dylib; do
-        [[ -f "$dylib" ]] && cp "$dylib" "$MACOS_DIR/"
+        [[ -f "$dylib" ]] && cp -X "$dylib" "$MACOS_DIR/"
     done
 
     # Real .icns (generated ahead of time via iconutil/sips from Assets/logo.png
     # and checked in at src/AI.GitHubManager.App/Assets/AppIcon.icns).
     ICNS_SRC="src/AI.GitHubManager.App/Assets/AppIcon.icns"
     if [[ -f "$ICNS_SRC" ]]; then
-        cp "$ICNS_SRC" "$RES_DIR/AppIcon.icns"
+        cp -X "$ICNS_SRC" "$RES_DIR/AppIcon.icns"
     else
         err "Missing $ICNS_SRC — regenerate it before building the installer."
     fi
-    cp LICENSE "$RES_DIR/LICENSE.txt" 2>/dev/null || true
+    cp -X LICENSE "$RES_DIR/LICENSE.txt" 2>/dev/null || true
 
     # Info.plist
     cat > "$APP_BUNDLE/Contents/Info.plist" <<PLIST
@@ -136,27 +138,36 @@ PLIST
     # locally. This is NOT a Developer ID signature and is NOT notarized —
     # see RELEASE_NOTES / scripts/verify-macos-app-bundle.sh for details.
     #
-    # Finder/Spotlight can tag a freshly created .app bundle directory with a
-    # com.apple.FinderInfo "has custom icon" extended attribute the moment it
-    # notices the bundle — sometimes *after* a first xattr -cr but *before*
-    # codesign runs. A single strip is not always enough, so retry a few
-    # times right next to the codesign call.
+    # LaunchServices/Icon Services can tag a freshly created .app bundle
+    # directory with a com.apple.FinderInfo "has custom icon" extended
+    # attribute the instant it notices the bundle — this can happen *after*
+    # a strip+codesign and make codesign --verify fail immediately
+    # afterwards. Audit, strip, sign, audit again, targeted re-strip of
+    # FinderInfo if it reappeared, then verify — never proceed to the DMG
+    # step unless codesign --verify actually passes.
     if command -v codesign &>/dev/null && command -v xattr &>/dev/null; then
-        SIGN_OK=0
-        for attempt in 1 2 3 4 5; do
-            xattr -cr "$APP_BUNDLE"
-            if codesign --force --deep --sign - "$APP_BUNDLE" 2>/tmp/codesign-err.log; then
-                SIGN_OK=1
-                break
-            fi
-            grep -q "resource fork\|FinderInfo\|detritus" /tmp/codesign-err.log || err "codesign failed: $(cat /tmp/codesign-err.log)"
-            log "codesign attempt $attempt hit a stray Finder attribute — retrying ..."
-            sleep 1
-        done
-        [[ "$SIGN_OK" == "1" ]] || err "codesign kept failing on extended attributes. Close any Finder window showing $APP_BUNDLE and re-run."
+        log "Extended attributes before cleanup:"
+        xattr -lr "$APP_BUNDLE" 2>/dev/null || true
+
+        xattr -cr "$APP_BUNDLE" 2>/dev/null || true
+        find "$APP_BUNDLE" -exec xattr -c {} \; 2>/dev/null || true
+        if xattr -lr "$APP_BUNDLE" 2>/dev/null | grep -q .; then
+            xattr -lr "$APP_BUNDLE"
+            err "Extended attributes remain on $APP_BUNDLE after stripping."
+        fi
+
+        codesign --force --deep --sign - "$APP_BUNDLE"
+        ok "codesign succeeded"
+
+        if xattr -lr "$APP_BUNDLE" 2>/dev/null | grep -q "com.apple.FinderInfo"; then
+            log "com.apple.FinderInfo reappeared after signing — removing it and re-signing once ..."
+            xattr -d com.apple.FinderInfo "$APP_BUNDLE" 2>/dev/null || true
+            find "$APP_BUNDLE" -exec xattr -d com.apple.FinderInfo {} \; 2>/dev/null || true
+            codesign --force --deep --sign - "$APP_BUNDLE"
+        fi
 
         # Never package a DMG from a bundle whose signature doesn't verify.
-        codesign --verify --deep --strict --verbose=2 "$APP_BUNDLE"
+        codesign --verify --deep --strict --verbose=4 "$APP_BUNDLE"
         ok "codesign --verify passed"
     fi
 
