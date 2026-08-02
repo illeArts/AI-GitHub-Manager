@@ -219,14 +219,24 @@ public sealed class MainWindowViewModel : ViewModelBase
 
     // ── Understandable Git operation model (Teil B1–B5) ─────────────────────
 
-    /// <summary>Normal operations shown in the main dropdown, in a fixed, documented order.</summary>
-    public IReadOnlyList<GitOperationDefinition> AvailableOperations => GitOperationCatalog.NormalOperations;
+    /// <summary>
+    /// Normal operations shown in the main dropdown, in a fixed, documented order.
+    /// Returns a fresh list instance on every access (not the cached static one)
+    /// so that re-raising OnPropertyChanged(nameof(AvailableOperations)) on a
+    /// language switch is seen by Avalonia's ComboBox as a genuine collection
+    /// change. With the same list *reference* returned every time, the ComboBox
+    /// kept showing stale (previous-language) item text — the explanation panel
+    /// below it updated correctly because it binds individual string properties,
+    /// not a converter over a cached, reference-unchanged collection.
+    /// </summary>
+    public IReadOnlyList<GitOperationDefinition> AvailableOperations => GitOperationCatalog.NormalOperations.ToList();
 
     /// <summary>
     /// "Erweiterte Befehle" (Teil B2) — never in the normal dropdown, shown only
-    /// in a separate, collapsed/deactivated area of the UI with extra confirmation.
+    /// in a separate window with extra confirmation. Same fresh-list-per-access
+    /// rationale as <see cref="AvailableOperations"/>.
     /// </summary>
-    public IReadOnlyList<GitOperationDefinition> AdvancedOperations => GitOperationCatalog.AdvancedOperations;
+    public IReadOnlyList<GitOperationDefinition> AdvancedOperations => GitOperationCatalog.AdvancedOperations.ToList();
 
     /// <summary>
     /// The currently selected normal operation. Default is "Aktualisieren"
@@ -258,6 +268,12 @@ public sealed class MainWindowViewModel : ViewModelBase
         // with the selected language.
         OnPropertyChanged(nameof(AvailableOperations));
         OnPropertyChanged(nameof(AdvancedOperations));
+        // Also re-raise the selected item itself: the ComboBox's closed-state
+        // display box is bound to SelectedItem and doesn't re-run the item
+        // DataTemplate/converter just because the underlying language flag
+        // changed elsewhere — only an explicit change notification on
+        // SelectedOperation (or a reset ItemsSource, handled above) does that.
+        OnPropertyChanged(nameof(SelectedOperation));
         OnPropertyChanged(nameof(SelectedOperationTitle));
         OnPropertyChanged(nameof(SelectedOperationDescription));
         OnPropertyChanged(nameof(SelectedOperationSuitableFor));

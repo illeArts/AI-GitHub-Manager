@@ -65,6 +65,26 @@ public partial class MainWindow : Window
         new ExportWindow(path).ShowDialog(this);
     }
 
+    // ── Arbeitsabläufe (moved out of the main work area — Auftragserweiterung
+    //    UI-Polishing #2/#3): both windows share the same MainWindowViewModel
+    //    instance as the main window, so nothing here is a separate copy of
+    //    state — selecting/running an operation there is exactly the same as
+    //    if it still lived in the main window. Non-modal (Show, not
+    //    ShowDialog) so the log output in the main window stays visible and
+    //    live while one of these is open. ─────────────────────────────────
+
+    private void OnOpenOperationWindowClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (DataContext is not MainWindowViewModel vm) return;
+        new OperationWindow(vm).Show(this);
+    }
+
+    private void OnOpenAdvancedOperationsWindowClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (DataContext is not MainWindowViewModel vm) return;
+        new AdvancedOperationsWindow(vm).Show(this);
+    }
+
     // ── Output / Fehleranalyse toolbar ──────────────────────────────────────
 
     private void OnOpenOutputWindowClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)

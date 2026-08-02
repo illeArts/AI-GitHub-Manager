@@ -1,0 +1,47 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:conv="clr-namespace:AI.GitHubManager.App.Converters"
+        x:Class="AI.GitHubManager.App.Views.AdvancedOperationsWindow"
+        x:Name="AdvRootWindow"
+        Title="{Binding Strings.AdvancedOperationsHeader}"
+        Width="620" Height="560" MinWidth="440" MinHeight="360"
+        CanResize="True"
+        Background="#181c24">
+
+  <!-- Moved out of the main window (Auftragserweiterung UI-Polishing #3):
+       reachable via Aktionen → Arbeitsabläufe → Erweiterte Befehle, so
+       potentially destructive operations are never permanently visible in
+       the main work area. Nothing here executes without the confirmation
+       dialog (ConfirmDangerousOperationWindow) — unchanged from before. -->
+  <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="16">
+    <StackPanel>
+      <TextBlock Text="{Binding Strings.AdvancedOperationsHeader}"
+                 FontSize="20" FontWeight="Bold" Foreground="White" Margin="0,0,0,6" />
+      <TextBlock Text="{Binding Strings.AdvancedOperationsIntro}"
+                 FontSize="12" Foreground="#8899aa" TextWrapping="Wrap" Margin="0,0,0,14" />
+
+      <ItemsControl ItemsSource="{Binding AdvancedOperations}">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate>
+            <Border Background="#1a1216" BorderBrush="#4a2020" BorderThickness="1"
+                    CornerRadius="6" Padding="10" Margin="0,0,0,8">
+              <Grid ColumnDefinitions="*,Auto">
+                <StackPanel Grid.Column="0" Spacing="2">
+                  <TextBlock Text="{Binding Converter={x:Static conv:GitOperationTitleWithRiskConverter.Instance}}"
+                             FontWeight="SemiBold" FontSize="13" Foreground="#ff8787" />
+                  <TextBlock Text="{Binding Converter={x:Static conv:GitOperationDescriptionConverter.Instance}}" FontSize="11" Foreground="#aa8888" TextWrapping="Wrap" />
+                  <TextBlock Text="{Binding TechnicalCommand}" FontFamily="monospace" FontSize="10" Foreground="#665050" />
+                </StackPanel>
+                <Button Grid.Column="1" VerticalAlignment="Top" Margin="8,0,0,0"
+                        Content="{Binding #AdvRootWindow.DataContext.Strings.OperationRunButton}"
+                        Command="{Binding #AdvRootWindow.DataContext.ExecuteAdvancedOperationCommand}"
+                        CommandParameter="{Binding}"
+                        AutomationProperties.Name="{Binding Converter={x:Static conv:GitOperationTitleWithRiskConverter.Instance}}" />
+              </Grid>
+            </Border>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </StackPanel>
+  </ScrollViewer>
+</Window>

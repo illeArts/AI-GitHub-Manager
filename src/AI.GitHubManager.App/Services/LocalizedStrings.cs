@@ -101,6 +101,17 @@ public sealed class LocalizedStrings : INotifyPropertyChanged
         "For experienced Git users. These operations can rewrite history or irreversibly delete data, and are deliberately collapsed and not executable by default.");
     public string AdvancedOperationsExpand  => L.T("Erweiterte Befehle anzeigen", "Show advanced commands");
 
+    // ── Actions sidebar groups + entry points for the operation/advanced windows
+    //    (Auftragserweiterung UI-Polishing) ────────────────────────────────────
+    public string GroupProjectHeader   => L.T("Projekt",        "Project");
+    public string GroupGitHeader       => L.T("Git",            "Git");
+    public string GroupWorkflowsHeader => L.T("Arbeitsabläufe", "Workflows");
+    public string GroupBuildHeader     => L.T("Build",          "Build");
+    public string GroupUpdatesHeader   => L.T("Updates",        "Updates");
+
+    public string OpenOperationWindowBtn => L.T("Verständlicher Vorgang", "Understandable operation");
+    public string OpenAdvancedOperationsWindowBtn => L.T("Erweiterte Befehle", "Advanced commands");
+
     // ── Menu (used in code-behind ApplyMenuStrings) ───────────────────────────
     public string MenuSettingsHeader => L.T("_Einstellungen",       "_Settings");
     public string MenuHelpHeader     => L.T("_Hilfe",               "_Help");

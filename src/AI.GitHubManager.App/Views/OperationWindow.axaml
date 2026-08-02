@@ -1,0 +1,95 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:conv="clr-namespace:AI.GitHubManager.App.Converters"
+        x:Class="AI.GitHubManager.App.Views.OperationWindow"
+        x:Name="OpRootWindow"
+        Title="{Binding Strings.OperationSectionHeader}"
+        Width="620" Height="560" MinWidth="440" MinHeight="360"
+        CanResize="True"
+        Background="#181c24">
+
+  <!-- Moved out of the main window (Auftragserweiterung UI-Polishing #2):
+       reachable via Aktionen → Arbeitsabläufe → Verständlicher Vorgang,
+       instead of permanently occupying space in the main work area. -->
+  <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="16">
+    <StackPanel>
+      <TextBlock Text="{Binding Strings.OperationSectionHeader}"
+                 FontSize="20" FontWeight="Bold" Foreground="White" Margin="0,0,0,4" />
+      <TextBlock Text="{Binding Strings.OperationDropdownLabel}"
+                 FontSize="12" Foreground="#6b7688" Margin="0,0,0,10" />
+
+      <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,14">
+        <ComboBox Grid.Column="0"
+                  ItemsSource="{Binding AvailableOperations}"
+                  SelectedItem="{Binding SelectedOperation}"
+                  HorizontalAlignment="Stretch"
+                  AutomationProperties.Name="{Binding Strings.OperationDropdownLabel}">
+          <ComboBox.ItemTemplate>
+            <DataTemplate>
+              <TextBlock Text="{Binding Converter={x:Static conv:GitOperationTitleConverter.Instance}}" />
+            </DataTemplate>
+          </ComboBox.ItemTemplate>
+        </ComboBox>
+        <Button Grid.Column="1"
+                Content="{Binding Strings.OperationRunButton}"
+                Command="{Binding ExecuteSelectedOperationCommand}"
+                Margin="8,0,0,0"
+                AutomationProperties.Name="{Binding SelectedOperationTitle}" />
+      </Grid>
+
+      <Border Background="#12151c" CornerRadius="8" Padding="14">
+        <StackPanel Spacing="4">
+          <TextBlock Text="{Binding SelectedOperationTitle}"
+                     FontWeight="SemiBold" FontSize="16" Foreground="White" />
+          <TextBlock Text="{Binding SelectedOperationDescription}"
+                     FontSize="12" Foreground="#c8d0e0" TextWrapping="Wrap" Margin="0,0,0,6" />
+
+          <Grid ColumnDefinitions="150,*">
+            <TextBlock Grid.Column="0" Text="{Binding Strings.OperationRiskLevelLabel}" Foreground="#74c0fc" FontSize="12" />
+            <TextBlock Grid.Column="1" Text="{Binding SelectedOperationRiskLevelText}" Foreground="#ffd43b" FontWeight="SemiBold" FontSize="12" />
+          </Grid>
+          <Grid ColumnDefinitions="150,*">
+            <TextBlock Grid.Column="0" Text="{Binding Strings.OperationCommandLabel}" Foreground="#5a6b90" FontSize="11" />
+            <TextBlock Grid.Column="1" Text="{Binding SelectedOperationCommand}" Foreground="#5a6b90" FontFamily="monospace" FontSize="11" />
+          </Grid>
+
+          <Expander Header="{Binding Strings.OperationDetailsExpand}" IsExpanded="False" Margin="0,6,0,0">
+            <StackPanel Spacing="4" Margin="0,8,0,0">
+              <Grid ColumnDefinitions="150,*">
+                <TextBlock Grid.Column="0" Text="{Binding Strings.OperationSuitableForLabel}" Foreground="#74c0fc" FontSize="12" />
+                <TextBlock Grid.Column="1" Text="{Binding SelectedOperationSuitableFor}" Foreground="#aabbcc" FontSize="12" TextWrapping="Wrap" />
+              </Grid>
+              <Grid ColumnDefinitions="150,*">
+                <TextBlock Grid.Column="0" Text="{Binding Strings.OperationWhatChangesLabel}" Foreground="#74c0fc" FontSize="12" />
+                <TextBlock Grid.Column="1" Text="{Binding SelectedOperationWhatChanges}" Foreground="#aabbcc" FontSize="12" TextWrapping="Wrap" />
+              </Grid>
+              <Grid ColumnDefinitions="150,*">
+                <TextBlock Grid.Column="0" Text="{Binding Strings.OperationWhatStaysLabel}" Foreground="#74c0fc" FontSize="12" />
+                <TextBlock Grid.Column="1" Text="{Binding SelectedOperationWhatStays}" Foreground="#aabbcc" FontSize="12" TextWrapping="Wrap" />
+              </Grid>
+              <Grid ColumnDefinitions="150,*">
+                <TextBlock Grid.Column="0" Text="{Binding Strings.OperationRiskLabel}" Foreground="#74c0fc" FontSize="12" />
+                <TextBlock Grid.Column="1" Text="{Binding SelectedOperationRisk}" Foreground="#aabbcc" FontSize="12" TextWrapping="Wrap" />
+              </Grid>
+
+              <StackPanel IsVisible="{Binding HasSelectedOperationPreflightPreview}" Margin="0,4,0,0" Spacing="2">
+                <TextBlock Text="{Binding Strings.OperationPreflightStepsLabel}"
+                           Foreground="#74c0fc" FontSize="12" Margin="0,0,0,2" />
+                <ItemsControl ItemsSource="{Binding SelectedOperationPreflightSteps}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                      <TextBlock Text="{Binding}" Foreground="#aabbcc" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,1" />
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <TextBlock Text="{Binding SelectedOperationPreflightSummary}"
+                           Foreground="#8899aa" FontSize="11" FontStyle="Italic"
+                           TextWrapping="Wrap" Margin="0,4,0,0" />
+              </StackPanel>
+            </StackPanel>
+          </Expander>
+        </StackPanel>
+      </Border>
+    </StackPanel>
+  </ScrollViewer>
+</Window>

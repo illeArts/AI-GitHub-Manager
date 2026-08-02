@@ -140,135 +140,11 @@
                       Click="OnExportProjectClick" />
             </WrapPanel>
 
-            <!-- ── Understandable Git operation model (Teil B1–B5) ──────────
-                 Complements, never replaces, the buttons above: Status/
-                 Aktualisieren/Commit+Push above stay exactly as they were.
-                 This panel additionally explains what "Aktualisieren" etc.
-                 mean, and offers the remaining normal operations that don't
-                 have a dedicated button yet. -->
-            <Rectangle Height="1" Fill="#2a3040" Margin="0,14,0,14" />
-
-            <TextBlock Text="{Binding Strings.OperationSectionHeader}"
-                       FontSize="14" FontWeight="SemiBold"
-                       Foreground="#8899aa" Margin="0,0,0,8" />
-
-            <TextBlock Text="{Binding Strings.OperationDropdownLabel}"
-                       FontSize="12" Foreground="#6b7688" Margin="0,0,0,4" />
-
-            <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,10">
-              <ComboBox Grid.Column="0"
-                        ItemsSource="{Binding AvailableOperations}"
-                        SelectedItem="{Binding SelectedOperation}"
-                        HorizontalAlignment="Stretch"
-                        AutomationProperties.Name="{Binding Strings.OperationDropdownLabel}">
-                <ComboBox.ItemTemplate>
-                  <DataTemplate>
-                    <TextBlock Text="{Binding Converter={x:Static conv:GitOperationTitleConverter.Instance}}" />
-                  </DataTemplate>
-                </ComboBox.ItemTemplate>
-              </ComboBox>
-              <Button Grid.Column="1"
-                      Content="{Binding Strings.OperationRunButton}"
-                      Command="{Binding ExecuteSelectedOperationCommand}"
-                      Margin="8,0,0,0"
-                      AutomationProperties.Name="{Binding SelectedOperationTitle}" />
-            </Grid>
-
-            <!-- Explanation panel directly under the selection (Teil B4).
-                 Compact by default: title, short description, risk, risk
-                 level, technical command. Everything else (Geeignet für,
-                 Was wird verändert/bleibt unverändert, Was passiert jetzt)
-                 sits behind "Details anzeigen" so this panel doesn't
-                 permanently dominate the window. -->
-            <Border Background="#12151c" CornerRadius="8" Padding="12" Margin="0,0,0,10">
-              <StackPanel Spacing="4">
-                <TextBlock Text="{Binding SelectedOperationTitle}"
-                           FontWeight="SemiBold" FontSize="14" Foreground="White" />
-                <TextBlock Text="{Binding SelectedOperationDescription}"
-                           FontSize="12" Foreground="#c8d0e0" TextWrapping="Wrap" Margin="0,0,0,6" />
-
-                <Grid ColumnDefinitions="150,*">
-                  <TextBlock Grid.Column="0" Text="{Binding Strings.OperationRiskLevelLabel}" Foreground="#74c0fc" FontSize="12" />
-                  <TextBlock Grid.Column="1" Text="{Binding SelectedOperationRiskLevelText}" Foreground="#ffd43b" FontWeight="SemiBold" FontSize="12" />
-                </Grid>
-                <Grid ColumnDefinitions="150,*">
-                  <TextBlock Grid.Column="0" Text="{Binding Strings.OperationCommandLabel}" Foreground="#5a6b90" FontSize="11" />
-                  <TextBlock Grid.Column="1" Text="{Binding SelectedOperationCommand}" Foreground="#5a6b90" FontFamily="monospace" FontSize="11" />
-                </Grid>
-
-                <Expander Header="{Binding Strings.OperationDetailsExpand}" IsExpanded="False" Margin="0,6,0,0">
-                  <StackPanel Spacing="4" Margin="0,8,0,0">
-                    <Grid ColumnDefinitions="150,*">
-                      <TextBlock Grid.Column="0" Text="{Binding Strings.OperationSuitableForLabel}" Foreground="#74c0fc" FontSize="12" />
-                      <TextBlock Grid.Column="1" Text="{Binding SelectedOperationSuitableFor}" Foreground="#aabbcc" FontSize="12" TextWrapping="Wrap" />
-                    </Grid>
-                    <Grid ColumnDefinitions="150,*">
-                      <TextBlock Grid.Column="0" Text="{Binding Strings.OperationWhatChangesLabel}" Foreground="#74c0fc" FontSize="12" />
-                      <TextBlock Grid.Column="1" Text="{Binding SelectedOperationWhatChanges}" Foreground="#aabbcc" FontSize="12" TextWrapping="Wrap" />
-                    </Grid>
-                    <Grid ColumnDefinitions="150,*">
-                      <TextBlock Grid.Column="0" Text="{Binding Strings.OperationWhatStaysLabel}" Foreground="#74c0fc" FontSize="12" />
-                      <TextBlock Grid.Column="1" Text="{Binding SelectedOperationWhatStays}" Foreground="#aabbcc" FontSize="12" TextWrapping="Wrap" />
-                    </Grid>
-                    <Grid ColumnDefinitions="150,*">
-                      <TextBlock Grid.Column="0" Text="{Binding Strings.OperationRiskLabel}" Foreground="#74c0fc" FontSize="12" />
-                      <TextBlock Grid.Column="1" Text="{Binding SelectedOperationRisk}" Foreground="#aabbcc" FontSize="12" TextWrapping="Wrap" />
-                    </Grid>
-
-                    <!-- "Was passiert jetzt?" preview (Teil B6) — only rendered when a
-                         canned preview exists for the selected operation (Status,
-                         Aktualisieren, Commit erstellen und hochladen in this milestone). -->
-                    <StackPanel IsVisible="{Binding HasSelectedOperationPreflightPreview}" Margin="0,4,0,0" Spacing="2">
-                      <TextBlock Text="{Binding Strings.OperationPreflightStepsLabel}"
-                                 Foreground="#74c0fc" FontSize="12" Margin="0,0,0,2" />
-                      <ItemsControl ItemsSource="{Binding SelectedOperationPreflightSteps}">
-                        <ItemsControl.ItemTemplate>
-                          <DataTemplate>
-                            <TextBlock Text="{Binding}" Foreground="#aabbcc" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,1" />
-                          </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                      </ItemsControl>
-                      <TextBlock Text="{Binding SelectedOperationPreflightSummary}"
-                                 Foreground="#8899aa" FontSize="11" FontStyle="Italic"
-                                 TextWrapping="Wrap" Margin="0,4,0,0" />
-                    </StackPanel>
-                  </StackPanel>
-                </Expander>
-              </StackPanel>
-            </Border>
-
-            <!-- ── Advanced commands (Teil B2) — collapsed by default, never
-                 auto-selected. Each entry has its own "Ausführen" button, but
-                 clicking it only opens the confirmation dialog (Teil B7/D) —
-                 nothing here executes directly. ─────────────────────────── -->
-            <Expander Header="{Binding Strings.AdvancedOperationsExpand}" IsExpanded="False">
-              <StackPanel Margin="0,8,0,0" Spacing="8">
-                <TextBlock Text="{Binding Strings.AdvancedOperationsIntro}"
-                           FontSize="11" Foreground="#8899aa" TextWrapping="Wrap" />
-                <ItemsControl ItemsSource="{Binding AdvancedOperations}">
-                  <ItemsControl.ItemTemplate>
-                    <DataTemplate>
-                      <Border Background="#1a1216" BorderBrush="#4a2020" BorderThickness="1"
-                              CornerRadius="6" Padding="10" Margin="0,0,0,6">
-                        <Grid ColumnDefinitions="*,Auto">
-                          <StackPanel Grid.Column="0" Spacing="2">
-                            <TextBlock Text="{Binding Converter={x:Static conv:GitOperationTitleWithRiskConverter.Instance}}"
-                                       FontWeight="SemiBold" FontSize="12" Foreground="#ff8787" />
-                            <TextBlock Text="{Binding Converter={x:Static conv:GitOperationDescriptionConverter.Instance}}" FontSize="11" Foreground="#aa8888" TextWrapping="Wrap" />
-                            <TextBlock Text="{Binding TechnicalCommand}" FontFamily="monospace" FontSize="10" Foreground="#665050" />
-                          </StackPanel>
-                          <Button Grid.Column="1" VerticalAlignment="Top" Margin="8,0,0,0"
-                                  Content="{Binding #RootWindow.DataContext.Strings.OperationRunButton}"
-                                  Command="{Binding #RootWindow.DataContext.ExecuteAdvancedOperationCommand}"
-                                  CommandParameter="{Binding}"
-                                  AutomationProperties.Name="{Binding Converter={x:Static conv:GitOperationTitleWithRiskConverter.Instance}}" />
-                        </Grid>
-                      </Border>
-                    </DataTemplate>
-                  </ItemsControl.ItemTemplate>
-                </ItemsControl>
-              </StackPanel>
-            </Expander>
+            <!-- "Verständlicher Vorgang" and "Erweiterte Befehle" used to live
+                 here permanently (Teil B1–B5). Per the follow-up UI-Polishing
+                 spec, this panel stays compact — path/commit-message/Status/
+                 Pull/Commit+Push/Export only. Both moved to their own windows,
+                 reachable from Aktionen → Arbeitsabläufe. -->
           </StackPanel>
         </Border>
 
@@ -310,7 +186,7 @@
             </Grid>
             <TextBox Text="{Binding Log}"
                      AcceptsReturn="True" IsReadOnly="True"
-                     TextWrapping="Wrap" Height="180"
+                     TextWrapping="Wrap" MinHeight="360"
                      FontFamily="Consolas, Menlo, monospace" />
           </DockPanel>
         </Border>
@@ -330,12 +206,27 @@
 
           <ScrollViewer>
             <StackPanel>
+
+              <!-- ── Projekt ─────────────────────────────────────────────── -->
+              <TextBlock Text="{Binding Strings.GroupProjectHeader}"
+                         FontSize="11" FontWeight="Bold" Foreground="#5a6b90"
+                         Margin="0,0,0,6" />
               <Button Content="{Binding Strings.ImportGitHub}"
                       Command="{Binding ImportGitHubReposCommand}"    Margin="0,0,0,8" HorizontalAlignment="Stretch" />
-              <Button Content="{Binding Strings.InstallCli}"
-                      Command="{Binding InstallGitHubCliCommand}"     Margin="0,0,0,8" HorizontalAlignment="Stretch" />
+              <Button Content="{Binding Strings.SaveProject}"
+                      Command="{Binding SaveProjectCommand}"          Margin="0,0,0,8" HorizontalAlignment="Stretch" />
+              <Button Content="{Binding Strings.ExportDiagnostics}"
+                      Command="{Binding ExportDiagnosticsCommand}"    Margin="0,0,0,8" HorizontalAlignment="Stretch" />
+              <Separator Margin="0,2,0,10" />
+
+              <!-- ── Git ─────────────────────────────────────────────────── -->
+              <TextBlock Text="{Binding Strings.GroupGitHeader}"
+                         FontSize="11" FontWeight="Bold" Foreground="#5a6b90"
+                         Margin="0,0,0,6" />
               <Button Content="{Binding Strings.GitHubLogin}"
                       Command="{Binding LoginGitHubCommand}"          Margin="0,0,0,8" HorizontalAlignment="Stretch" />
+              <Button Content="{Binding Strings.InstallCli}"
+                      Command="{Binding InstallGitHubCliCommand}"     Margin="0,0,0,8" HorizontalAlignment="Stretch" />
               <Button Content="{Binding Strings.CheckEnv}"
                       Command="{Binding CheckEnvironmentCommand}"     Margin="0,0,0,8" HorizontalAlignment="Stretch" />
               <Button Content="{Binding Strings.RefreshScope}"
@@ -372,11 +263,28 @@
                            TextWrapping="Wrap"
                            TextAlignment="Center" />
               </Button>
-              <Button Content="{Binding Strings.ExportDiagnostics}"
-                      Command="{Binding ExportDiagnosticsCommand}"    Margin="0,0,0,8" HorizontalAlignment="Stretch" />
-              <Button Content="{Binding Strings.SaveProject}"
-                      Command="{Binding SaveProjectCommand}"          Margin="0,0,0,8" HorizontalAlignment="Stretch" />
-              <Separator Margin="0,4,0,4" />
+              <Separator Margin="0,2,0,10" />
+
+              <!-- ── Arbeitsabläufe ──────────────────────────────────────────
+                   "Verständlicher Vorgang" and "Erweiterte Befehle" moved here
+                   from the main work area — each opens its own window, sharing
+                   the same MainWindowViewModel, so nothing about how they
+                   behave changed, only where they're reached from. ────────── -->
+              <TextBlock Text="{Binding Strings.GroupWorkflowsHeader}"
+                         FontSize="11" FontWeight="Bold" Foreground="#5a6b90"
+                         Margin="0,0,0,6" />
+              <Button Content="{Binding Strings.OpenOperationWindowBtn}"
+                      Click="OnOpenOperationWindowClick"              Margin="0,0,0,8" HorizontalAlignment="Stretch" />
+              <Button Content="{Binding Strings.OpenAdvancedOperationsWindowBtn}"
+                      Click="OnOpenAdvancedOperationsWindowClick"
+                      Foreground="#ff8787"
+                      Margin="0,0,0,8" HorizontalAlignment="Stretch" />
+              <Separator Margin="0,2,0,10" />
+
+              <!-- ── Build ───────────────────────────────────────────────── -->
+              <TextBlock Text="{Binding Strings.GroupBuildHeader}"
+                         FontSize="11" FontWeight="Bold" Foreground="#5a6b90"
+                         Margin="0,0,0,6" />
               <Button Content="{Binding Strings.BuildTestPushBtn}"
                       Command="{Binding BuildTestPushCommand}"        Margin="0,0,0,8" HorizontalAlignment="Stretch" />
               <Button Content="{Binding Strings.CreateInstallerBtn}"
@@ -384,7 +292,12 @@
               <Button Content="{Binding Strings.InstallInnoSetupBtn}"
                       Command="{Binding InstallInnoSetupCommand}"
                       IsVisible="{Binding ShowInstallInnoSetup}"      Margin="0,0,0,8" HorizontalAlignment="Stretch" />
-              <Separator Margin="0,4,0,4" />
+              <Separator Margin="0,2,0,10" />
+
+              <!-- ── Updates ─────────────────────────────────────────────── -->
+              <TextBlock Text="{Binding Strings.GroupUpdatesHeader}"
+                         FontSize="11" FontWeight="Bold" Foreground="#5a6b90"
+                         Margin="0,0,0,6" />
               <Button Content="{Binding Strings.CheckForUpdate}"
                       Command="{Binding CheckForUpdateCommand}"       HorizontalAlignment="Stretch" />
             </StackPanel>
