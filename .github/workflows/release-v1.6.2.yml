@@ -298,16 +298,40 @@ jobs:
         env:
           VERSION: ${{ env.VERSION }}
 
-      - name: Spot-check the archive unpacks to a real .app
+      - name: Unpack the archive and fully re-verify the extracted app
+        # This is not a cosmetic spot-check: it re-runs every acceptance
+        # check (real .app present, executable bit, correct architecture,
+        # valid Info.plist, no Windows binaries, valid codesign) against the
+        # UNPACKED copy of the exact ZIP that will be uploaded/released. A
+        # ZIP whose signature only holds up before packaging is worthless.
         run: |
           set -euo pipefail
           NAME="AI-GitHub-Manager-v${VERSION}-macos-${{ matrix.arch_label }}.zip"
+          APP="/tmp/unzip-check/AI GitHub Manager.app"
+          BIN="$APP/Contents/MacOS/AI.GitHubManager.App"
           rm -rf /tmp/unzip-check && mkdir -p /tmp/unzip-check
           ditto -x -k "artifacts/dist/$NAME" /tmp/unzip-check
-          test -d "/tmp/unzip-check/AI GitHub Manager.app"
-          test -x "/tmp/unzip-check/AI GitHub Manager.app/Contents/MacOS/AI.GitHubManager.App"
-          spctl --assess --type execute --verbose=4 "/tmp/unzip-check/AI GitHub Manager.app" || \
-            echo "::warning::spctl rejected the ad-hoc signed app (expected without Developer ID + notarization)."
+
+          test -d "$APP"
+          test -x "$BIN"
+
+          file "$BIN"
+          case "${{ matrix.rid }}" in
+            osx-arm64) file "$BIN" | grep -q "arm64" ;;
+            osx-x64)   file "$BIN" | grep -q "x86_64" ;;
+          esac
+
+          plutil -lint "$APP/Contents/Info.plist"
+
+          if find "$APP" -iname "*.exe" -o -iname "*.msi" | grep -q .; then
+            echo "::error::Windows binaries found in the unpacked archive"
+            exit 1
+          fi
+
+          codesign --verify --deep --strict --verbose=2 "$APP"
+
+          spctl --assess --type execute --verbose=4 "$APP" || \
+            echo "::warning::spctl rejected the ad-hoc signed app (expected without Developer ID + notarization) — not a failure."
         env:
           VERSION: ${{ env.VERSION }}
 

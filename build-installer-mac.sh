@@ -154,6 +154,10 @@ PLIST
             sleep 1
         done
         [[ "$SIGN_OK" == "1" ]] || err "codesign kept failing on extended attributes. Close any Finder window showing $APP_BUNDLE and re-run."
+
+        # Never package a DMG from a bundle whose signature doesn't verify.
+        codesign --verify --deep --strict --verbose=2 "$APP_BUNDLE"
+        ok "codesign --verify passed"
     fi
 
     ok "App bundle created → $APP_BUNDLE"
