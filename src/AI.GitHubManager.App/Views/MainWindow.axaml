@@ -196,6 +196,24 @@
                   <TextBlock Grid.Column="0" Text="{Binding Strings.OperationCommandLabel}" Foreground="#5a6b90" FontSize="11" />
                   <TextBlock Grid.Column="1" Text="{Binding SelectedOperationCommand}" Foreground="#5a6b90" FontFamily="monospace" FontSize="11" />
                 </Grid>
+
+                <!-- "Was passiert jetzt?" preview (Teil B6) — only rendered when a
+                     canned preview exists for the selected operation (Status,
+                     Aktualisieren, Commit erstellen und hochladen in this milestone). -->
+                <StackPanel IsVisible="{Binding HasSelectedOperationPreflightPreview}" Margin="0,8,0,0" Spacing="2">
+                  <TextBlock Text="{Binding Strings.OperationPreflightStepsLabel}"
+                             Foreground="#74c0fc" FontSize="12" Margin="0,0,0,2" />
+                  <ItemsControl ItemsSource="{Binding SelectedOperationPreflightSteps}">
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate>
+                        <TextBlock Text="{Binding}" Foreground="#aabbcc" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,1" />
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                  <TextBlock Text="{Binding SelectedOperationPreflightSummary}"
+                             Foreground="#8899aa" FontSize="11" FontStyle="Italic"
+                             TextWrapping="Wrap" Margin="0,4,0,0" />
+                </StackPanel>
               </StackPanel>
             </Border>
 

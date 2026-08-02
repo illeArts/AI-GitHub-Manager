@@ -110,6 +110,83 @@ public class GitErrorParserTests
         Assert.Equal(GitErrorKind.NetworkError, result.Kind);
     }
 
+    // ── Pull-specific fast-forward failure (Teil B9 literal example) ────────────
+
+    [Fact]
+    public void Parse_PullNotFastForward_DetectedCorrectly()
+    {
+        const string output = "fatal: Not possible to fast-forward, aborting.";
+        var result = GitErrorParser.Parse(output);
+        Assert.Equal(GitErrorKind.PullNotFastForward, result.Kind);
+        Assert.NotNull(result.Hint);
+        Assert.NotEqual(GitErrorKind.NonFastForward, result.Kind); // distinct from a rejected Push
+    }
+
+    // ── No upstream ──────────────────────────────────────────────────────────
+
+    [Theory]
+    [InlineData("fatal: The current branch feature/x has no upstream branch.")]
+    [InlineData("To push the current branch and set the remote as upstream, use\n\ngit push --set-upstream origin feature/x")]
+    public void Parse_NoUpstream_DetectedCorrectly(string output)
+    {
+        var result = GitErrorParser.Parse(output);
+        Assert.Equal(GitErrorKind.NoUpstream, result.Kind);
+    }
+
+    // ── Detached HEAD ────────────────────────────────────────────────────────
+
+    [Theory]
+    [InlineData("HEAD detached at a1b2c3d")]
+    [InlineData("fatal: You are not currently on a branch.")]
+    public void Parse_DetachedHead_DetectedCorrectly(string output)
+    {
+        var result = GitErrorParser.Parse(output);
+        Assert.Equal(GitErrorKind.DetachedHead, result.Kind);
+    }
+
+    // ── Interrupted merge/rebase ─────────────────────────────────────────────
+
+    [Theory]
+    [InlineData("error: you have not concluded your merge (MERGE_HEAD exists).")]
+    [InlineData("error: could not apply a1b2c3d... rebase in progress; onto d4e5f6a")]
+    public void Parse_InterruptedMergeOrRebase_DetectedCorrectly(string output)
+    {
+        var result = GitErrorParser.Parse(output);
+        Assert.Equal(GitErrorKind.InterruptedMergeOrRebase, result.Kind);
+        Assert.NotNull(result.Hint);
+    }
+
+    // ── Permission error ──────────────────────────────────────────────────────
+
+    [Theory]
+    [InlineData("error: unable to unlink old 'file.txt': Permission denied")]
+    [InlineData("fatal: Operation not permitted")]
+    public void Parse_PermissionError_DetectedCorrectly(string output)
+    {
+        var result = GitErrorParser.Parse(output);
+        Assert.Equal(GitErrorKind.PermissionError, result.Kind);
+    }
+
+    // ── Bilingual coverage (Teil A1: language switch must cover error text) ────
+
+    [Theory]
+    [InlineData("remote: Authentication failed for 'https://github.com/...'")]
+    [InlineData("ERROR: Repository not found.")]
+    [InlineData("CONFLICT (content): Merge conflict in src/Foo.cs")]
+    [InlineData("fatal: Not possible to fast-forward, aborting.")]
+    [InlineData("fatal: The current branch feature/x has no upstream branch.")]
+    [InlineData("fatal: You are not currently on a branch.")]
+    [InlineData("error: you have not concluded your merge (MERGE_HEAD exists).")]
+    [InlineData("fatal: Operation not permitted")]
+    public void Parse_KnownKinds_HaveNonEmptyGermanAndEnglishMessages(string output)
+    {
+        var result = GitErrorParser.Parse(output);
+        Assert.NotEqual(GitErrorKind.Unknown, result.Kind);
+        Assert.False(string.IsNullOrWhiteSpace(result.Message(english: false)));
+        Assert.False(string.IsNullOrWhiteSpace(result.Message(english: true)));
+        Assert.NotEqual(result.Message(english: false), result.Message(english: true));
+    }
+
     // ── Unknown ──────────────────────────────────────────────────────────────
 
     [Theory]

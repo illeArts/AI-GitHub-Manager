@@ -244,6 +244,9 @@ public sealed class MainWindowViewModel : ViewModelBase
         OnPropertyChanged(nameof(SelectedOperationRisk));
         OnPropertyChanged(nameof(SelectedOperationRiskLevelText));
         OnPropertyChanged(nameof(SelectedOperationCommand));
+        OnPropertyChanged(nameof(SelectedOperationPreflightSteps));
+        OnPropertyChanged(nameof(SelectedOperationPreflightSummary));
+        OnPropertyChanged(nameof(HasSelectedOperationPreflightPreview));
     }
 
     // Explanation panel shown directly under the dropdown (Teil B4) — always
@@ -258,6 +261,20 @@ public sealed class MainWindowViewModel : ViewModelBase
     public string SelectedOperationCommand     => SelectedOperation.TechnicalCommand;
 
     public string SelectedOperationRiskLevelText => RiskLevelText(SelectedOperation.RiskLevel);
+
+    /// <summary>
+    /// "Was passiert jetzt?" step list for the selected operation (Teil B6),
+    /// shown in the main explanation panel — empty for operations without a
+    /// canned preview yet (nothing fabricated).
+    /// </summary>
+    public IReadOnlyList<string> SelectedOperationPreflightSteps =>
+        OperationPreflightPreview.Steps(SelectedOperation, L.IsEnglish);
+
+    /// <summary>"Zusammenfassung" line for the selected operation (Teil B6), or null.</summary>
+    public string? SelectedOperationPreflightSummary =>
+        OperationPreflightPreview.Summary(SelectedOperation, L.IsEnglish);
+
+    public bool HasSelectedOperationPreflightPreview => SelectedOperationPreflightSteps.Count > 0;
 
     /// <summary>Risk level as visible text (Teil B5 — never color-only).</summary>
     public static string RiskLevelText(GitOperationRiskLevel level) => level switch
@@ -473,32 +490,63 @@ public sealed class MainWindowViewModel : ViewModelBase
         return result.State switch
         {
             SafePullState.CleanPullSucceeded =>
-                result.PullOutput ?? result.Message,
+                L.T("✅ Aktualisierung erfolgreich — keine lokalen Änderungen betroffen.",
+                    "✅ Update successful — no local changes affected.") +
+                "\n\n" + (result.PullOutput ?? result.Message),
 
             SafePullState.PullSucceededAndChangesRestored =>
-                result.Message + "\n\n" + (result.PullOutput ?? string.Empty),
+                L.T("✅ Aktualisierung erfolgreich — lokale Änderungen wurden danach wiederhergestellt.",
+                    "✅ Update successful — local changes were restored afterwards.") +
+                "\n\n" + (result.PullOutput ?? string.Empty),
 
+            // The raw pull output (e.g. "fatal: Not possible to fast-forward, aborting.")
+            // is routed through GitErrorParser so the exact same bilingual cause/hint text
+            // is shown here as for every other Git error (Teil B9 consistency requirement).
             SafePullState.PullFailedAndRestored =>
-                EnrichWithErrorHint(result.Message),
+                EnrichWithErrorHint(result.PullOutput ?? result.Message),
 
             SafePullState.RestoreConflict =>
-                result.Message + "\n\n" +
+                L.T("⚠️ Aktualisierung teilweise erfolgreich — Wiederherstellung der lokalen Änderungen ergab Konflikte.",
+                    "⚠️ Update partially successful — restoring local changes produced conflicts.") +
+                "\n\n" + result.Message + "\n\n" +
                 L.T("Betroffene Dateien:\n", "Affected files:\n") +
                 string.Join("\n", result.ConflictFiles) +
                 "\n\n" + L.T(
-                    "Aktionen: Konflikte anzeigen, Sicherung behalten, oder Wiederherstellung erneut versuchen. " +
+                    "Was jetzt möglich ist: Konflikte anzeigen, Sicherung behalten, oder Wiederherstellung erneut versuchen. " +
                     "Es wurden keine lokalen Änderungen verworfen.",
-                    "Actions: view conflicts, keep the backup, or retry the restore. " +
+                    "What's possible now: view conflicts, keep the backup, or retry the restore. " +
                     "No local changes were discarded."),
 
-            SafePullState.BackupCreationFailed => result.Message,
-            SafePullState.RestoreFailed        => result.Message,
-            SafePullState.AbortedDueToLocalChanges =>
-                result.Message + "\n\n" + string.Join("\n", result.ConflictFiles),
-            SafePullState.FastForwardNotPossible => result.Message,
-            SafePullState.NotARepository         => result.Message,
+            SafePullState.BackupCreationFailed =>
+                L.T("❌ Aktualisierung abgebrochen — Schutzsicherung der lokalen Änderungen fehlgeschlagen.",
+                    "❌ Update aborted — creating the safety backup of local changes failed.") +
+                "\n\n" + result.Message,
 
-            SafePullState.WriteBlockedByLockGuard => result.Message + "\n\n" + L.T(
+            SafePullState.RestoreFailed =>
+                L.T("❌ Aktualisierung fehlgeschlagen und Wiederherstellung der Sicherung ebenfalls fehlgeschlagen.",
+                    "❌ Update failed and restoring the backup also failed.") +
+                "\n\n" + result.Message,
+
+            SafePullState.AbortedDueToLocalChanges =>
+                L.T("⏸️ Aktualisierung abgebrochen — es wurden lokale Änderungen gefunden (Einstellung: nur warnen).",
+                    "⏸️ Update cancelled — local changes were found (setting: warn only).") +
+                "\n\n" + result.Message + "\n\n" + string.Join("\n", result.ConflictFiles),
+
+            // Pull-specific diverged-branches failure — literal Teil B9 example
+            // ("fatal: Not possible to fast-forward, aborting."). Routed through the
+            // same bilingual error pipeline as every other Git error.
+            SafePullState.FastForwardNotPossible =>
+                EnrichWithErrorHint(result.PullOutput ?? result.Message),
+
+            SafePullState.NotARepository =>
+                L.T("❌ Kein gültiges Git-Repository im ausgewählten Ordner.",
+                    "❌ No valid Git repository in the selected folder.") +
+                "\n\n" + result.Message,
+
+            SafePullState.WriteBlockedByLockGuard =>
+                L.T("⏸️ Aktualisierung blockiert — ein anderer Git-Vorgang ist noch aktiv.",
+                    "⏸️ Update blocked — another Git operation is still active.") +
+                "\n\n" + result.Message + "\n\n" + L.T(
                 "Nichts wurde verändert — weder ein Stash noch ein Pull wurde ausgeführt. " +
                 "Falls die Sperre verwaist ist, kann sie über \"Verwaiste Git-Sperre sicher entfernen\" " +
                 "geprüft und entfernt werden.",
@@ -1163,9 +1211,12 @@ public sealed class MainWindowViewModel : ViewModelBase
         sb.AppendLine(rawOutput.TrimEnd());
         sb.AppendLine();
         sb.AppendLine(L.T("── Fehleranalyse ────────────────────────────", "── Error analysis ────────────────────────────"));
-        sb.AppendLine($"{L.T("Ursache:", "Cause:")} {info.UserMessage}");
-        if (!string.IsNullOrWhiteSpace(info.Hint))
-            sb.AppendLine($"{L.T("Lösung: ", "Solution:")} {info.Hint}");
+        sb.AppendLine($"{L.T("Ursache:", "Cause:")} {info.Message(L.IsEnglish)}");
+        var hint = info.HintText(L.IsEnglish);
+        if (!string.IsNullOrWhiteSpace(hint))
+            sb.AppendLine($"{L.T("Lösung: ", "Solution:")} {hint}");
+        sb.AppendLine(L.T("(Technische Rohdaten oben unverändert erhalten.)",
+                           "(Raw technical output preserved unchanged above.)"));
         return sb.ToString().TrimEnd();
     }
 

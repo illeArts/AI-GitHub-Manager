@@ -75,6 +75,7 @@ public sealed class LocalizedStrings : INotifyPropertyChanged
     public string OperationRiskLabel        => L.T("Mögliches Risiko:", "Possible risk:");
     public string OperationRiskLevelLabel   => L.T("Risikostufe:", "Risk level:");
     public string OperationCommandLabel     => L.T("Technischer Befehl:", "Technical command:");
+    public string OperationPreflightStepsLabel => L.T("Was passiert jetzt?", "What happens now?");
 
     public string AdvancedOperationsHeader  => L.T("Erweiterte Befehle", "Advanced commands");
     public string AdvancedOperationsIntro   => L.T(
