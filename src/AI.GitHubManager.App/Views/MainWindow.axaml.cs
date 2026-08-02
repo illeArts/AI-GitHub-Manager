@@ -64,4 +64,43 @@ public partial class MainWindow : Window
         var path = (DataContext as MainWindowViewModel)?.LocalPath;
         new ExportWindow(path).ShowDialog(this);
     }
+
+    // ── Output / Fehleranalyse toolbar ──────────────────────────────────────
+
+    private void OnOpenOutputWindowClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+        => new OutputWindow(DataContext as MainWindowViewModel).Show(this);
+
+    private async void OnCopyOutputClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (DataContext is not MainWindowViewModel vm) return;
+        var clipboard = GetTopLevel(this)?.Clipboard;
+        if (clipboard is not null)
+        {
+            await clipboard.SetTextAsync(vm.Log);
+            vm.Log += "\n\n" + L.T("(In die Zwischenablage kopiert.)", "(Copied to clipboard.)");
+        }
+    }
+
+    private async void OnExportOutputClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (DataContext is not MainWindowViewModel vm) return;
+        var storage = StorageProvider;
+
+        var file = await storage.SaveFilePickerAsync(new FilePickerSaveOptions
+        {
+            Title = L.T("Ausgabe exportieren", "Export output"),
+            SuggestedFileName = $"ai-github-manager-output-{DateTime.Now:yyyy-MM-dd_HH-mm-ss}.txt",
+            FileTypeChoices = new[]
+            {
+                new FilePickerFileType(L.T("Textdatei", "Text file")) { Patterns = new[] { "*.txt", "*.log" } }
+            }
+        });
+        if (file is null) return;
+
+        var header = L.T($"Exportiert am {DateTime.Now:yyyy-MM-dd HH:mm:ss}\n{new string('-', 40)}\n\n",
+                          $"Exported on {DateTime.Now:yyyy-MM-dd HH:mm:ss}\n{new string('-', 40)}\n\n");
+        await using var stream = await file.OpenWriteAsync();
+        await using var writer = new StreamWriter(stream);
+        await writer.WriteAsync(header + vm.Log);
+    }
 }

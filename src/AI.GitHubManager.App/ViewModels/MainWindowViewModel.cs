@@ -36,7 +36,13 @@ public sealed class MainWindowViewModel : ViewModelBase
 
     private ManagedProject? _selectedProject;
     private string _localPath = string.Empty;
-    private string _commitMessage = "Update";
+    // Empty by default — deliberately NOT prefilled with "Update" anymore.
+    // A prefilled "Update" here looked like a leftover vague operation
+    // selector right next to the new operation dropdown and confused users.
+    // GitService.CommitAndPushAsync already falls back to an auto-generated
+    // "Update <timestamp>" message when this is left empty, so nothing is
+    // lost — the field's placeholder text explains that fallback instead.
+    private string _commitMessage = string.Empty;
     private string _log = "Bereit.";
     private bool _isBusy;
     private string _updateNotice = string.Empty;
@@ -100,6 +106,8 @@ public sealed class MainWindowViewModel : ViewModelBase
         var installInnoSetup = new RelayCommand(() => { OpenInnoSetupDownload(); return Task.CompletedTask; }, () => !IsBusy);
         var removeOrphanedGitLock = new RelayCommand(RemoveOrphanedGitLockAsync, () => !IsBusy);
         var executeSelectedOperation = new RelayCommand(ExecuteSelectedOperationAsync, () => !IsBusy);
+        var clearLog = new RelayCommand(() => { Log = Strings.OutputClearedNotice; return Task.CompletedTask; });
+        ClearLogCommand = clearLog;
         _executeAdvancedOperation = new RelayCommand<GitOperationDefinition>(ExecuteAdvancedOperationAsync, _ => !IsBusy);
         ExecuteAdvancedOperationCommand = _executeAdvancedOperation;
 
@@ -181,6 +189,7 @@ public sealed class MainWindowViewModel : ViewModelBase
     public ICommand RemoveOrphanedGitLockCommand  { get; }
     public ICommand ExecuteSelectedOperationCommand { get; }
     public ICommand ExecuteAdvancedOperationCommand { get; }
+    public ICommand ClearLogCommand { get; }
 
     private readonly RelayCommand<GitOperationDefinition> _executeAdvancedOperation;
 

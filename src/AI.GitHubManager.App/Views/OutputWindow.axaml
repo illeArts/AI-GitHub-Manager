@@ -1,0 +1,27 @@
+<Window xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="AI.GitHubManager.App.Views.OutputWindow"
+        Width="820" Height="560" MinWidth="480" MinHeight="300"
+        CanResize="True">
+  <Grid RowDefinitions="Auto,Auto,*,Auto" Margin="14">
+    <TextBlock x:Name="TitleText" Grid.Row="0" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,10" />
+
+    <Grid Grid.Row="1" ColumnDefinitions="*,Auto,Auto,Auto" Margin="0,0,0,10">
+      <TextBox Grid.Column="0" x:Name="SearchBox" TextChanged="OnSearchChanged" />
+      <CheckBox Grid.Column="1" x:Name="WrapCheckBox" IsChecked="True" Margin="8,0,0,0" Checked="OnWrapChanged" Unchecked="OnWrapChanged" />
+      <Button Grid.Column="2" x:Name="CopyButton" Click="OnCopyClick" Margin="8,0,0,0" />
+      <Button Grid.Column="3" x:Name="ClearButton" Click="OnClearClick" Margin="8,0,0,0" />
+    </Grid>
+
+    <Border Grid.Row="2" BorderBrush="#3b4250" BorderThickness="1" CornerRadius="8" Padding="1">
+      <TextBox x:Name="ContentBox" IsReadOnly="True" AcceptsReturn="True"
+               FontFamily="Consolas, Menlo, monospace" FontSize="13"
+               TextWrapping="Wrap" />
+    </Border>
+
+    <Grid Grid.Row="3" ColumnDefinitions="*,Auto,Auto" Margin="0,10,0,0">
+      <TextBlock Grid.Column="0" x:Name="MatchCountText" VerticalAlignment="Center" Foreground="#8899aa" FontSize="12" />
+      <Button Grid.Column="1" x:Name="SaveButton" Click="OnSaveClick" Margin="0,0,8,0" />
+      <Button Grid.Column="2" x:Name="CloseButton" Click="OnCloseClick" />
+    </Grid>
+  </Grid>
+</Window>

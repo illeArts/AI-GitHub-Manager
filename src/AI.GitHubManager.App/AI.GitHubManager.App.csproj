@@ -39,6 +39,14 @@
     <PackageReference Include="Avalonia.Desktop"      Version="11.2.3" />
     <PackageReference Include="Avalonia.Themes.Fluent" Version="11.2.3" />
     <PackageReference Include="Avalonia.Fonts.Inter"  Version="11.2.3" />
+    <!-- Required for real macOS integration: bridges Avalonia's NativeMenu
+         to the actual NSApplication menu bar (About/Settings/Quit/Help),
+         the Dock icon, and the real running-app name shown at the top of
+         the screen. Without this package, Avalonia falls back to a
+         generic, unbranded default (shows "Avalonia Application" with no
+         custom menu items at all) — this was the root cause of Settings/
+         Help/About/language being completely unreachable on macOS. -->
+    <PackageReference Include="Avalonia.Native"       Version="11.2.3" />
   </ItemGroup>
 
   <!-- Embed Assets as Avalonia resources (logo, profile picture, icon).

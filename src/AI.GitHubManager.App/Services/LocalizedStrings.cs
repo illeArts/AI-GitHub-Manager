@@ -53,7 +53,9 @@ public sealed class LocalizedStrings : INotifyPropertyChanged
     public string LocalLinkHeader   => L.T("Lokale Verknüpfung",   "Local Link");
     public string PathWatermark     => L.T("Lokaler Projektordner, z.B. /Users/... oder C:\\Users\\...",
                                           "Local project folder, e.g. /Users/... or C:\\Users\\...");
-    public string CommitWatermark   => L.T("Commit-Nachricht",      "Commit message");
+    public string CommitWatermark   => L.T("Commit-Nachricht (optional — sonst automatisch generiert)",
+                                            "Commit message (optional — auto-generated otherwise)");
+    public string CommitMessageLabel => L.T("Commit-Nachricht:", "Commit message:");
     public string PickFolder        => L.T("Ordner wählen",         "Browse...");
     public string StatusBtn         => "Status";   // same in both languages
     public string PullBtn           => "Pull";     // same in both languages
@@ -64,6 +66,21 @@ public sealed class LocalizedStrings : INotifyPropertyChanged
         "Note: This app never stores GitHub tokens. Install GitHub CLI first, then run GitHub Login. Authentication uses GitHub CLI (gh) and the system's secure credential store.");
 
     public string OutputHeader      => L.T("Ausgabe / Fehleranalyse","Output / Diagnostics");
+    public string OutputOpenSeparateBtn => L.T("Separat öffnen", "Open separately");
+    public string OutputCopyBtn         => L.T("Kopieren", "Copy");
+    public string OutputClearBtn        => L.T("Leeren", "Clear");
+    public string OutputExportBtn       => L.T("Exportieren", "Export");
+    public string OutputCopiedNotice    => L.T("In die Zwischenablage kopiert.", "Copied to clipboard.");
+    public string OutputClearedNotice   => L.T("Bereit.", "Ready.");
+
+    // ── Separate output window ───────────────────────────────────────────────
+    public string OutputWindowTitle     => L.T("Ausgabe / Fehleranalyse", "Output / Diagnostics");
+    public string OutputWindowSearchWatermark => L.T("Im Text suchen…", "Search text…");
+    public string OutputWindowWrapToggle => L.T("Zeilenumbruch", "Word wrap");
+    public string OutputWindowSaveBtn   => L.T("Speichern unter…", "Save as…");
+    public string OutputWindowCopyBtn   => L.T("Kopieren", "Copy");
+    public string OutputWindowClearBtn  => L.T("Leeren", "Clear");
+    public string OutputWindowCloseBtn  => L.T("Schließen", "Close");
 
     // ── Understandable Git operation model (Teil B1–B5) ──────────────────────
     public string OperationSectionHeader => L.T("Verständlicher Vorgang", "Understandable operation");
@@ -76,6 +93,7 @@ public sealed class LocalizedStrings : INotifyPropertyChanged
     public string OperationRiskLevelLabel   => L.T("Risikostufe:", "Risk level:");
     public string OperationCommandLabel     => L.T("Technischer Befehl:", "Technical command:");
     public string OperationPreflightStepsLabel => L.T("Was passiert jetzt?", "What happens now?");
+    public string OperationDetailsExpand => L.T("Details anzeigen", "Show details");
 
     public string AdvancedOperationsHeader  => L.T("Erweiterte Befehle", "Advanced commands");
     public string AdvancedOperationsIntro   => L.T(

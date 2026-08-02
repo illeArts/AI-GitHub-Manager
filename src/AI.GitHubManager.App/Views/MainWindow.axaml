@@ -98,8 +98,14 @@
         </DockPanel>
       </Border>
 
-      <!-- Right panel -->
-      <Grid Grid.Row="1" Grid.Column="1" RowDefinitions="Auto,Auto,*">
+      <!-- Right panel — the entire content area scrolls vertically (mouse
+           wheel, trackpad, scrollbar drag, PageUp/Down, arrow keys when
+           focused) so nothing is ever only reachable by resizing the
+           window. -->
+      <ScrollViewer Grid.Row="1" Grid.Column="1"
+                    VerticalScrollBarVisibility="Auto"
+                    HorizontalScrollBarVisibility="Disabled">
+      <StackPanel>
 
         <!-- Path + actions -->
         <Border Padding="12" CornerRadius="12"
@@ -119,6 +125,7 @@
                       Margin="8,0,0,0" />
             </Grid>
 
+            <TextBlock Text="{Binding Strings.CommitMessageLabel}" FontSize="12" Foreground="#6b7688" Margin="0,0,0,4" />
             <TextBox Watermark="{Binding Strings.CommitWatermark}"
                      Text="{Binding CommitMessage}" Margin="0,0,0,8" />
 
@@ -167,7 +174,12 @@
                       AutomationProperties.Name="{Binding SelectedOperationTitle}" />
             </Grid>
 
-            <!-- Explanation panel directly under the selection (Teil B4) -->
+            <!-- Explanation panel directly under the selection (Teil B4).
+                 Compact by default: title, short description, risk, risk
+                 level, technical command. Everything else (Geeignet für,
+                 Was wird verändert/bleibt unverändert, Was passiert jetzt)
+                 sits behind "Details anzeigen" so this panel doesn't
+                 permanently dominate the window. -->
             <Border Background="#12151c" CornerRadius="8" Padding="12" Margin="0,0,0,10">
               <StackPanel Spacing="4">
                 <TextBlock Text="{Binding SelectedOperationTitle}"
@@ -175,22 +187,6 @@
                 <TextBlock Text="{Binding SelectedOperationDescription}"
                            FontSize="12" Foreground="#c8d0e0" TextWrapping="Wrap" Margin="0,0,0,6" />
 
-                <Grid ColumnDefinitions="150,*">
-                  <TextBlock Grid.Column="0" Text="{Binding Strings.OperationSuitableForLabel}" Foreground="#74c0fc" FontSize="12" />
-                  <TextBlock Grid.Column="1" Text="{Binding SelectedOperationSuitableFor}" Foreground="#aabbcc" FontSize="12" TextWrapping="Wrap" />
-                </Grid>
-                <Grid ColumnDefinitions="150,*">
-                  <TextBlock Grid.Column="0" Text="{Binding Strings.OperationWhatChangesLabel}" Foreground="#74c0fc" FontSize="12" />
-                  <TextBlock Grid.Column="1" Text="{Binding SelectedOperationWhatChanges}" Foreground="#aabbcc" FontSize="12" TextWrapping="Wrap" />
-                </Grid>
-                <Grid ColumnDefinitions="150,*">
-                  <TextBlock Grid.Column="0" Text="{Binding Strings.OperationWhatStaysLabel}" Foreground="#74c0fc" FontSize="12" />
-                  <TextBlock Grid.Column="1" Text="{Binding SelectedOperationWhatStays}" Foreground="#aabbcc" FontSize="12" TextWrapping="Wrap" />
-                </Grid>
-                <Grid ColumnDefinitions="150,*">
-                  <TextBlock Grid.Column="0" Text="{Binding Strings.OperationRiskLabel}" Foreground="#74c0fc" FontSize="12" />
-                  <TextBlock Grid.Column="1" Text="{Binding SelectedOperationRisk}" Foreground="#aabbcc" FontSize="12" TextWrapping="Wrap" />
-                </Grid>
                 <Grid ColumnDefinitions="150,*">
                   <TextBlock Grid.Column="0" Text="{Binding Strings.OperationRiskLevelLabel}" Foreground="#74c0fc" FontSize="12" />
                   <TextBlock Grid.Column="1" Text="{Binding SelectedOperationRiskLevelText}" Foreground="#ffd43b" FontWeight="SemiBold" FontSize="12" />
@@ -200,23 +196,44 @@
                   <TextBlock Grid.Column="1" Text="{Binding SelectedOperationCommand}" Foreground="#5a6b90" FontFamily="monospace" FontSize="11" />
                 </Grid>
 
-                <!-- "Was passiert jetzt?" preview (Teil B6) — only rendered when a
-                     canned preview exists for the selected operation (Status,
-                     Aktualisieren, Commit erstellen und hochladen in this milestone). -->
-                <StackPanel IsVisible="{Binding HasSelectedOperationPreflightPreview}" Margin="0,8,0,0" Spacing="2">
-                  <TextBlock Text="{Binding Strings.OperationPreflightStepsLabel}"
-                             Foreground="#74c0fc" FontSize="12" Margin="0,0,0,2" />
-                  <ItemsControl ItemsSource="{Binding SelectedOperationPreflightSteps}">
-                    <ItemsControl.ItemTemplate>
-                      <DataTemplate>
-                        <TextBlock Text="{Binding}" Foreground="#aabbcc" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,1" />
-                      </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                  </ItemsControl>
-                  <TextBlock Text="{Binding SelectedOperationPreflightSummary}"
-                             Foreground="#8899aa" FontSize="11" FontStyle="Italic"
-                             TextWrapping="Wrap" Margin="0,4,0,0" />
-                </StackPanel>
+                <Expander Header="{Binding Strings.OperationDetailsExpand}" IsExpanded="False" Margin="0,6,0,0">
+                  <StackPanel Spacing="4" Margin="0,8,0,0">
+                    <Grid ColumnDefinitions="150,*">
+                      <TextBlock Grid.Column="0" Text="{Binding Strings.OperationSuitableForLabel}" Foreground="#74c0fc" FontSize="12" />
+                      <TextBlock Grid.Column="1" Text="{Binding SelectedOperationSuitableFor}" Foreground="#aabbcc" FontSize="12" TextWrapping="Wrap" />
+                    </Grid>
+                    <Grid ColumnDefinitions="150,*">
+                      <TextBlock Grid.Column="0" Text="{Binding Strings.OperationWhatChangesLabel}" Foreground="#74c0fc" FontSize="12" />
+                      <TextBlock Grid.Column="1" Text="{Binding SelectedOperationWhatChanges}" Foreground="#aabbcc" FontSize="12" TextWrapping="Wrap" />
+                    </Grid>
+                    <Grid ColumnDefinitions="150,*">
+                      <TextBlock Grid.Column="0" Text="{Binding Strings.OperationWhatStaysLabel}" Foreground="#74c0fc" FontSize="12" />
+                      <TextBlock Grid.Column="1" Text="{Binding SelectedOperationWhatStays}" Foreground="#aabbcc" FontSize="12" TextWrapping="Wrap" />
+                    </Grid>
+                    <Grid ColumnDefinitions="150,*">
+                      <TextBlock Grid.Column="0" Text="{Binding Strings.OperationRiskLabel}" Foreground="#74c0fc" FontSize="12" />
+                      <TextBlock Grid.Column="1" Text="{Binding SelectedOperationRisk}" Foreground="#aabbcc" FontSize="12" TextWrapping="Wrap" />
+                    </Grid>
+
+                    <!-- "Was passiert jetzt?" preview (Teil B6) — only rendered when a
+                         canned preview exists for the selected operation (Status,
+                         Aktualisieren, Commit erstellen und hochladen in this milestone). -->
+                    <StackPanel IsVisible="{Binding HasSelectedOperationPreflightPreview}" Margin="0,4,0,0" Spacing="2">
+                      <TextBlock Text="{Binding Strings.OperationPreflightStepsLabel}"
+                                 Foreground="#74c0fc" FontSize="12" Margin="0,0,0,2" />
+                      <ItemsControl ItemsSource="{Binding SelectedOperationPreflightSteps}">
+                        <ItemsControl.ItemTemplate>
+                          <DataTemplate>
+                            <TextBlock Text="{Binding}" Foreground="#aabbcc" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,1" />
+                          </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                      </ItemsControl>
+                      <TextBlock Text="{Binding SelectedOperationPreflightSummary}"
+                                 Foreground="#8899aa" FontSize="11" FontStyle="Italic"
+                                 TextWrapping="Wrap" Margin="0,4,0,0" />
+                    </StackPanel>
+                  </StackPanel>
+                </Expander>
               </StackPanel>
             </Border>
 
@@ -256,7 +273,7 @@
         </Border>
 
         <!-- Info banner -->
-        <Border Grid.Row="1" Padding="12,10" CornerRadius="10"
+        <Border Padding="12,10" CornerRadius="10"
                 Background="#181c24" BorderBrush="#2a3a50" BorderThickness="1"
                 Margin="0,0,0,12">
           <Grid ColumnDefinitions="22,*">
@@ -271,20 +288,34 @@
           </Grid>
         </Border>
 
-        <!-- Log output -->
-        <Border Grid.Row="2" Padding="12" CornerRadius="12"
+        <!-- Log output — compact preview in the main window (fixed height,
+             scrolls internally); "Separat öffnen" opens the full, resizable
+             OutputWindow with search/filter/timestamps/export for anything
+             longer than a quick glance. -->
+        <Border Padding="12" CornerRadius="12"
                 BorderBrush="#3b4250" BorderThickness="1">
           <DockPanel LastChildFill="True">
-            <TextBlock DockPanel.Dock="Top"
-                       Text="{Binding Strings.OutputHeader}"
-                       FontSize="18" FontWeight="SemiBold" Margin="0,0,0,10" />
+            <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto,Auto,Auto,Auto" Margin="0,0,0,10">
+              <TextBlock Grid.Column="0"
+                         Text="{Binding Strings.OutputHeader}"
+                         FontSize="18" FontWeight="SemiBold" VerticalAlignment="Center" />
+              <Button Grid.Column="1" Content="{Binding Strings.OutputOpenSeparateBtn}"
+                      Click="OnOpenOutputWindowClick" Margin="6,0,0,0" FontSize="12" />
+              <Button Grid.Column="2" Content="{Binding Strings.OutputCopyBtn}"
+                      Click="OnCopyOutputClick" Margin="6,0,0,0" FontSize="12" />
+              <Button Grid.Column="3" Content="{Binding Strings.OutputClearBtn}"
+                      Command="{Binding ClearLogCommand}" Margin="6,0,0,0" FontSize="12" />
+              <Button Grid.Column="4" Content="{Binding Strings.OutputExportBtn}"
+                      Click="OnExportOutputClick" Margin="6,0,0,0" FontSize="12" />
+            </Grid>
             <TextBox Text="{Binding Log}"
                      AcceptsReturn="True" IsReadOnly="True"
-                     TextWrapping="Wrap"
+                     TextWrapping="Wrap" Height="180"
                      FontFamily="Consolas, Menlo, monospace" />
           </DockPanel>
         </Border>
-      </Grid>
+      </StackPanel>
+      </ScrollViewer>
 
       <!-- Actions panel: all task buttons live here, to the right of the output,
            so the project list on the left keeps its own space. -->
