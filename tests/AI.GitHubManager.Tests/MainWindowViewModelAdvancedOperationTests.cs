@@ -32,7 +32,7 @@ public sealed class MainWindowViewModelAdvancedOperationTests : IDisposable
         await ((RelayCommand<GitOperationDefinition>)vm.ExecuteAdvancedOperationCommand)
             .ExecuteAsync(GitOperationCatalog.Clean);
 
-        Assert.True(File.Exists(Path.Combine(repo, "untracked.txt")));
+        Assert.True(File.Exists(Path.Combine(repo, "untracked.aigm-clean")));
         Assert.Contains("NICHT ausgeführt", vm.Log);
     }
 
@@ -50,7 +50,7 @@ public sealed class MainWindowViewModelAdvancedOperationTests : IDisposable
         await ((RelayCommand<GitOperationDefinition>)vm.ExecuteAdvancedOperationCommand)
             .ExecuteAsync(GitOperationCatalog.Clean);
 
-        Assert.True(File.Exists(Path.Combine(repo, "untracked.txt")));
+        Assert.True(File.Exists(Path.Combine(repo, "untracked.aigm-clean")));
         Assert.Contains("abgebrochen", vm.Log);
     }
 
@@ -67,7 +67,7 @@ public sealed class MainWindowViewModelAdvancedOperationTests : IDisposable
         await ((RelayCommand<GitOperationDefinition>)vm.ExecuteAdvancedOperationCommand)
             .ExecuteAsync(GitOperationCatalog.Clean);
 
-        Assert.True(File.Exists(Path.Combine(repo, "untracked.txt")));
+        Assert.True(File.Exists(Path.Combine(repo, "untracked.aigm-clean")));
     }
 
     [Fact]
@@ -84,7 +84,7 @@ public sealed class MainWindowViewModelAdvancedOperationTests : IDisposable
         await ((RelayCommand<GitOperationDefinition>)vm.ExecuteAdvancedOperationCommand)
             .ExecuteAsync(GitOperationCatalog.Clean);
 
-        Assert.False(File.Exists(Path.Combine(repo, "untracked.txt")));
+        Assert.False(File.Exists(Path.Combine(repo, "untracked.aigm-clean")));
         Assert.Contains("erfolgreich", vm.Log);
     }
 
@@ -122,7 +122,7 @@ public sealed class MainWindowViewModelAdvancedOperationTests : IDisposable
         await File.WriteAllTextAsync(Path.Combine(repo, "tracked.txt"), "kept");
         await _runner.RunAsync("git", ["add", "tracked.txt"], repo);
         await _runner.RunAsync("git", ["commit", "-m", "Initial"], repo);
-        await File.WriteAllTextAsync(Path.Combine(repo, "untracked.txt"), "gone");
+        await File.WriteAllTextAsync(Path.Combine(repo, "untracked.aigm-clean"), "gone");
         return repo;
     }
 

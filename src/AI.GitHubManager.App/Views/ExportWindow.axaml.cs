@@ -92,7 +92,7 @@ public partial class ExportWindow : Window
         {
             StatusText.Text = L.T("Ordner wird gescannt …", "Scanning folder …");
             var profile = ProfileBox.SelectedItem as ExportProfile ?? ExportProfiles.Get(ExportProfileKind.CleanSource);
-            var patterns = (CustomPatternsBox.Text ?? "").Split(['\r','\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            var patterns = (CustomPatternsBox.Text ?? "").Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
             _plan = await _planner.CreateAsync(SourceBox.Text ?? "", DestinationBox.Text ?? "", profile, patterns);
             var sensitive = _plan.Entries.Where(x => x.IsIncluded && x.IsSensitive).Select(x => x.RelativePath).ToArray();
             SensitiveList.ItemsSource = sensitive;
@@ -125,7 +125,7 @@ public partial class ExportWindow : Window
         if (selected.Count > 0)
         {
             var profile = ProfileBox.SelectedItem as ExportProfile ?? ExportProfiles.Get(ExportProfileKind.CleanSource);
-            var patterns = (CustomPatternsBox.Text ?? "").Split(['\r','\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            var patterns = (CustomPatternsBox.Text ?? "").Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
             _plan = await _planner.CreateAsync(SourceBox.Text!, DestinationBox.Text!, profile, patterns, selected);
         }
         if (_plan!.Included.Any(x => x.IsSensitive) && SensitiveConfirmation.IsChecked != true)
