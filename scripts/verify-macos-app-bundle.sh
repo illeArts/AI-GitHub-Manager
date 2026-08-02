@@ -99,11 +99,31 @@ PLIST
   fi
   ok "No Windows binaries"
 
-  log "Stripping extended attributes (resource forks / Finder info block codesign) ..."
-  xattr -cr "$APP"
+  # Finder/Spotlight can (re-)tag a freshly created .app bundle directory
+  # with a com.apple.FinderInfo "has custom icon" extended attribute the
+  # moment it notices the bundle — sometimes *after* our first xattr strip
+  # but *before* codesign runs. A single xattr -cr is therefore not always
+  # enough; disable indexing for the build tree and retry the strip+sign
+  # right next to each other a few times if needed.
+  mdutil -i off "$(pwd)/artifacts" &>/dev/null || true
 
-  log "Ad-hoc code signing (NOT a Developer ID signature, NOT notarized) ..."
-  codesign --force --deep --sign - "$APP"
+  log "Signing (ad-hoc — NOT a Developer ID signature, NOT notarized) ..."
+  SIGN_OK=0
+  for attempt in 1 2 3 4 5; do
+    xattr -cr "$APP"
+    find "$APP" -exec xattr -c {} \; 2>/dev/null
+    if codesign --force --deep --sign - "$APP" 2>/tmp/codesign-err.log; then
+      SIGN_OK=1
+      break
+    fi
+    if ! grep -q "resource fork\|FinderInfo\|detritus" /tmp/codesign-err.log; then
+      cat /tmp/codesign-err.log >&2
+      err "codesign failed for a reason other than extended attributes."
+    fi
+    log "  attempt $attempt: FinderInfo/resource-fork attribute reappeared, stripping and retrying ..."
+    sleep 1
+  done
+  [[ "$SIGN_OK" == "1" ]] || err "codesign kept failing on extended attributes after 5 attempts. Close any Finder window showing artifacts/appbundle and re-run, or run: xattr -cr \"$APP\" && codesign --force --deep --sign - \"$APP\" manually."
   codesign --verify --deep --strict --verbose=2 "$APP" && ok "codesign --verify passed"
 
   log "spctl assessment (Gatekeeper) ..."

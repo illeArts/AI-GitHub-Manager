@@ -135,12 +135,25 @@ PLIST
     # Ad-hoc sign so the bundle at least passes a basic codesign verification
     # locally. This is NOT a Developer ID signature and is NOT notarized —
     # see RELEASE_NOTES / scripts/verify-macos-app-bundle.sh for details.
-    # xattr -cr is required first: any stray resource-fork/Finder-info
-    # extended attribute on a copied file makes codesign fail hard with
-    # "resource fork, Finder information, or similar detritus not allowed".
-    if command -v codesign &>/dev/null; then
-        command -v xattr &>/dev/null && xattr -cr "$APP_BUNDLE"
-        codesign --force --deep --sign - "$APP_BUNDLE"
+    #
+    # Finder/Spotlight can tag a freshly created .app bundle directory with a
+    # com.apple.FinderInfo "has custom icon" extended attribute the moment it
+    # notices the bundle — sometimes *after* a first xattr -cr but *before*
+    # codesign runs. A single strip is not always enough, so retry a few
+    # times right next to the codesign call.
+    if command -v codesign &>/dev/null && command -v xattr &>/dev/null; then
+        SIGN_OK=0
+        for attempt in 1 2 3 4 5; do
+            xattr -cr "$APP_BUNDLE"
+            if codesign --force --deep --sign - "$APP_BUNDLE" 2>/tmp/codesign-err.log; then
+                SIGN_OK=1
+                break
+            fi
+            grep -q "resource fork\|FinderInfo\|detritus" /tmp/codesign-err.log || err "codesign failed: $(cat /tmp/codesign-err.log)"
+            log "codesign attempt $attempt hit a stray Finder attribute — retrying ..."
+            sleep 1
+        done
+        [[ "$SIGN_OK" == "1" ]] || err "codesign kept failing on extended attributes. Close any Finder window showing $APP_BUNDLE and re-run."
     fi
 
     ok "App bundle created → $APP_BUNDLE"
