@@ -93,7 +93,7 @@ strip_finderinfo_only() {
 
 # Sign a bundle and prove there is nothing left to block it:
 #   1. show + strip all extended attributes
-#   2. confirm nothing remains (hard fail otherwise)
+#   2. confirm no code-signing-blocking attribute remains (hard fail otherwise)
 #   3. codesign --force --deep --sign -
 #   4. show attributes again; if FinderInfo reappeared, strip it
 #      specifically and re-sign once
@@ -108,12 +108,16 @@ sign_and_verify_bundle() {
 
   strip_all_xattrs "$target"
 
-  if xattr -lr "$target" 2>/dev/null | grep -q .; then
-    echo "Extended Attributes remain after strip:" >&2
+  # macOS 26 may immediately restore com.apple.provenance while copying an
+  # executable. It is metadata, not a codesign detritus attribute, and cannot
+  # reliably be removed by xattr. FinderInfo and resource forks are the
+  # attributes that make codesign reject a bundle, so only those are fatal.
+  if xattr -lr "$target" 2>/dev/null | grep -Eqi 'com\.apple\.(FinderInfo|ResourceFork)'; then
+    echo "Code-signing-blocking extended attributes remain after strip:" >&2
     show_xattrs "$target"
-    err "Could not remove all extended attributes from '$target'."
+    err "Could not remove code-signing-blocking extended attributes from '$target'."
   fi
-  ok "No extended attributes remain before signing"
+  ok "No code-signing-blocking extended attributes remain before signing"
 
   log "codesign --force --deep --sign - ..."
   codesign --force --deep --sign - "$target"
@@ -293,7 +297,7 @@ done
 echo ""
 echo "==================== Summary ===================="
 echo "Both archs reached this point only because, for each of them:"
-echo "  - all extended attributes were confirmed removed before signing,"
+echo "  - no code-signing-blocking extended attributes remained before signing,"
 echo "  - codesign --force --deep --sign - succeeded,"
 echo "  - codesign --verify --deep --strict --verbose=4 succeeded on the"
 echo "    signed bundle AND again on the unpacked copy of the shipped ZIP."

@@ -1,70 +1,49 @@
-# macOS: Einstellungen/Hilfe/Über real nicht erreichbar (v1.6.2, behoben in 1.6.3)
+# macOS native menu repair (v1.6.3)
 
-## Korrektur einer früheren Einschätzung
+## Root cause
 
-In der Diskussion zu diesem Fund wurde zunächst vermutet, der Screenshot des
-Nutzers zeige eine veraltete, vor der Einführung von Settings/Help/About
-gebaute Installation. **Das war falsch.** Der Screenshot zeigte die frisch
-aus dem damaligen `main`-Stand (v1.6.2, Commit `cf7c9bf`) gebaute und
-gestartete macOS-App. Einstellungen, Hilfe und Über waren im Quellcode
-vorhanden, aber auf macOS real nicht wie vorgesehen erreichbar. Es handelte
-sich um einen echten Plattform-/Menü-Fehler, nicht um einen veralteten Build.
+The app used Avalonia 11.2.3's `NativeMenu.SetMenu(Application.Current, …)`
+from `OnFrameworkInitializationCompleted()`, and supplied a whole menu bar
+(application menu plus Help) at that point. This is not how the Avalonia
+Native exporter consumes this attached property:
 
-## Root Cause
+- The application-level exporter reads `NativeMenu.GetMenu(Application.Current)`
+  while the native platform is being initialized. It uses that menu as the
+  *contents* of the macOS application menu and appends the standard Services,
+  Hide, Show All, and Quit entries.
+- A later `SetMenu` on `Application` does not notify this exporter. The
+  diagnostic that merely counted the managed menu objects therefore did not
+  prove that macOS received it.
+- Additional visible root menus belong on the `Window`/`TopLevel` native-menu
+  exporter. The old code thus nested the application menu incorrectly and
+  could not reliably expose Help as a menu-bar root item.
 
-`App.axaml.cs::SetupMacNativeMenu` rief `NativeMenu.SetMenu(Current!, menu)`
-mit einem selbst zusammengesetzten Menü auf, dessen erstes Element
-(`settingsItem`) ein **Blatt-Element ohne Untermenü** war:
+## Repair
 
-```csharp
-var settingsItem = new NativeMenuItem(L.T("Einstellungen", "Settings"));
-...
-var menu = new NativeMenu();
-menu.Add(settingsItem);   // erstes Top-Level-Element — kein Submenü!
-menu.Add(helpMenu);
-NativeMenu.SetMenu(Current!, menu);
-```
+`App` now creates and attaches the application menu in its constructor, before
+Avalonia.Native initializes its exporter. It contains About and Preferences
+(⌘,); Avalonia supplies the platform-standard Services/Hide/Quit items,
+including ⌘Q. Once `MainWindow` exists, a window-level native menu supplies
+the separate Help root with Help (⌘?), the GitHub project, and release notes.
 
-Auf macOS wird das **erste Top-Level-Element** einer `NativeMenu` als
-Anwendungsmenü behandelt und von macOS automatisch mit dem echten
-App-Namen beschriftet — es wird aber ein Untermenü (`NativeMenu`-Kind)
-erwartet, das typischerweise mindestens „Über …" und „Beenden" enthält.
-Weil hier stattdessen ein einzelnes Blatt-Element ohne Kinder als erstes
-Element übergeben wurde, hat `NativeMenu.SetMenu` das von Avalonia/macOS
-sonst automatisch bereitgestellte Standard-App-Menü (mit „Über AI GitHub
-Manager" und „AI GitHub Manager beenden") **stillschweigend überschrieben
-und nicht durch ein gültiges Äquivalent ersetzt**. Zusätzlich:
+The menu labels subscribe to `L.Changed`; language selection remains stored by
+`AppSettingsService` and is applied at startup. The temporary startup log that
+exposed implementation diagnostics was removed.
 
-- Es gab keine Tastaturkürzel (`Gesture`) für Einstellungen (⌘,) oder
-  Hilfe (⌘?) — beide vom Nutzer erwarteten macOS-Konventionen fehlten.
-- „Über AI GitHub Manager" war zwei Ebenen tief im Hilfe-Untermenü
-  versteckt, statt im Anwendungsmenü zu stehen, wo macOS-Nutzer es
-  erwarten.
-- Es gab keinen expliziten „Beenden"-Eintrag mit ⌘Q im selbst gebauten
-  Menü.
+## Verification performed on macOS
 
-Das erklärt, warum der Nutzer auf einer real gebauten und gestarteten
-macOS-App weder ein erkennbares Anwendungsmenü noch Einstellungen/Hilfe/Über
-an der erwarteten Stelle vorfand, obwohl der Code dafür existierte.
+- `dotnet build -c Release`: 0 warnings, 0 errors.
+- `DOTNET_ROLL_FORWARD=Major dotnet test -c Release`: 249/249 passed. The
+  roll-forward is required on this test Mac because only the .NET 10 runtime
+  is installed; the project continues to target .NET 8.
+- `bash scripts/verify-macos-app-bundle.sh`: arm64 and x64 bundles passed
+  `plutil`, architecture, deep strict `codesign`, ZIP unpacking, and a second
+  deep strict signature verification.
+- The arm64 `.app` was started with `open`. macOS Accessibility inspection
+  reported the menu-bar roots `Apple, AI GitHub Manager, Hilfe`; the app menu
+  contained About, Preferences, Services, Hide, Hide Others, Show All and
+  Quit, and Help contained Help, GitHub project, and Release Notes. Activating
+  About opened the About window; activating Preferences opened Settings.
 
-## Fix (v1.6.3, Commit `60e42a9`)
-
-`SetupMacNativeMenu` baut jetzt ein vollständiges, macOS-konformes Menü:
-
-- **Erstes Top-Level-Element** ist ein `NativeMenuItem` mit eigenem
-  `NativeMenu` (Submenü) — das ist die Voraussetzung dafür, dass macOS es
-  korrekt als Anwendungsmenü behandelt und umbenennt. Enthält: „Über AI
-  GitHub Manager", Trenner, „Einstellungen…" (⌘,), Trenner, „AI GitHub
-  Manager beenden" (⌘Q, ruft `IClassicDesktopStyleApplicationLifetime.
-  Shutdown()` auf, nicht `Environment.Exit`).
-- Zweites Top-Level-Element: „Hilfe" mit „Hilfe / Befehle" (⌘?).
-- Beschriftungen bleiben weiterhin über `L.Changed` sprachsynchron;
-  Tastaturkürzel sind sprachunabhängig und ändern sich nicht.
-
-## Status
-
-Der Fix ist committet und gebaut (0 Fehler, 0 Warnungen, 159/159 Tests
-weiterhin grün). **Nicht in dieser Sitzung real auf einem Mac getestet** —
-das erfordert einen Blick auf die tatsächliche macOS-Menüleiste
-(`open`/Doppelklick, dann ⌘, / ⌘? / Anwendungsmenü prüfen). Bitte bei der
-nächsten macOS-Testrunde (Meilenstein 5) gezielt verifizieren.
+`spctl` remains informationally rejected for the release artifacts because
+they are ad-hoc signed and not notarized.

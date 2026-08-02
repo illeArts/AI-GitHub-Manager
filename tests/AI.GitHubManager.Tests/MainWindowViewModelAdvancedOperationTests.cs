@@ -113,6 +113,10 @@ public sealed class MainWindowViewModelAdvancedOperationTests : IDisposable
         var repo = Path.Combine(_root, Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(repo);
         await _runner.RunAsync("git", ["init"], repo);
+        // The test fixture must not inherit a developer's global excludes file:
+        // git clean intentionally preserves ignored files, which would make this
+        // test dependent on a local rule such as *.txt.
+        await _runner.RunAsync("git", ["config", "core.excludesfile", "/dev/null"], repo);
         await _runner.RunAsync("git", ["config", "user.email", "tests@example.invalid"], repo);
         await _runner.RunAsync("git", ["config", "user.name", "AI GitHub Manager Tests"], repo);
         await File.WriteAllTextAsync(Path.Combine(repo, "tracked.txt"), "kept");
