@@ -12,7 +12,7 @@ ersten Start ablehnen.
 
 ## Abgenommener Stand
 
-- Abgenommener Commit: `7ff5685` auf
+- Abgenommener Build-Commit: `c894ce5` auf
   `feature/v1.6.3-understandable-git-ui`.
 - .NET SDK: 8.0.129 (Apple Silicon).
 - `dotnet build -c Release`: 0 Warnungen, 0 Fehler.
