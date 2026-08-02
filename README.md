@@ -1,6 +1,6 @@
 # AI GitHub Manager
 
-[![Version](https://img.shields.io/badge/version-1.6.2-blue)](#aktueller-funktionsstand)
+[![Version](https://img.shields.io/badge/version-1.6.3-blue)](#aktueller-funktionsstand)
 [![Platforms](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey)](#voraussetzungen)
 [![License](https://img.shields.io/badge/license-proprietary%20community--use-orange)](LICENSE)
 
@@ -187,20 +187,41 @@ gh auth setup-git
 
 ## Aktueller Funktionsstand
 
-Aktuelle Projektversion: **1.6.2**
+Aktuelle Projektversion: **1.6.3**
 
 Das vollständige Benutzerhandbuch (Schnellstart, alle Befehle, Fehlerbehebung, Sicherheit) ist im
 Menü **Hilfe → Hilfe / Befehle** der App verfügbar und existiert auf Deutsch und Englisch.
 
-Noch sinnvoll zu verifizieren beziehungsweise auszubauen:
+Noch offen (Stand 1.6.3, siehe RELEASE_NOTES_v1.6.3.md „Bekannte Einschränkungen“):
 
-- Clean Export auf unterstützten macOS- und Linux-Zielsystemen manuell testen;
+- Developer-ID-Signierung und Notarisierung für macOS (aktuell nur Ad-hoc-Signatur,
+  Gatekeeper-Warnung bleibt bestehen);
+- eigener Hilfe-Abschnitt zu den „Erweiterten Befehlen“ (Rebase/Cherry-Pick/Force
+  Push/Reset/Hard Reset/Clean) — die Bedienoberfläche selbst erklärt sie bereits
+  vollständig im Bestätigungsdialog;
+- vollständige Tastatur-/Screenreader-Durchgängigkeit über die gesamte Anwendung
+  (bisher nur an den zentralen Bedienelementen ergänzt);
 - Oberfläche und Lokalisierung des Exportdialogs vereinheitlichen;
-- reproduzierbare Release-Artefakte für Windows, macOS und Linux automatisieren;
-- Signierung, Prüfsummen und Release-Nachweise ergänzen;
 - Regressionstests bei neuen Randfällen erweitern.
 
 ## Änderungsprotokoll (Changelog)
+
+### Version 1.6.3 — Verständliche Git-Bedienung, macOS-/Linux-Parität
+
+- Git-Vorgänge sind jetzt als benanntes Dropdown mit 12 Einträgen, Risikostufen
+  (Sicher / Vorsicht / Erweitert / Gefährlich), Erklärungsfeld (Geeignet für /
+  Was wird verändert / Was bleibt unverändert) und sichtbarem technischem
+  Befehl abgebildet, statt eines einzelnen vagen „Update"-Felds.
+- Einstellungen, Hilfe/Benutzerhandbuch und Über-Dialog sind auf Windows,
+  macOS und Linux gleichermaßen erreichbar; macOS erhält eine native
+  Anwendungsmenüleiste.
+- Erweiterte, potenziell gefährliche Befehle (Rebase, Cherry-Pick, Force Push,
+  Reset, Hard Reset, Clean) verlangen einen expliziten Bestätigungsdialog;
+  bei Hard Reset/Clean/Force Push zusätzlich die exakte Eingabe des
+  Branch-Namens. Force Push nutzt ausschließlich `--force-with-lease`.
+- Vollständige Details, Testergebnisse und bekannte Einschränkungen (u. a.
+  macOS-Gatekeeper/Ad-hoc-Signierung ohne Notarisierung) siehe
+  [`RELEASE_NOTES_v1.6.3.md`](RELEASE_NOTES_v1.6.3.md).
 
 ### Version 1.6.2 — Plattformspezifische Updates & sicherer Pull
 
