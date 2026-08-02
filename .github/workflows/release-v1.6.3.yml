@@ -240,9 +240,12 @@ jobs:
 
           xattr -cr "$APP" 2>/dev/null || true
           find "$APP" -exec xattr -c {} \; 2>/dev/null || true
-          if xattr -lr "$APP" 2>/dev/null | grep -q .; then
+          # macOS 26 may immediately recreate com.apple.provenance while
+          # copying executables. It is harmless metadata; FinderInfo and
+          # ResourceFork are the attributes that make codesign reject a bundle.
+          if xattr -lr "$APP" 2>/dev/null | grep -Eqi 'com\.apple\.(FinderInfo|ResourceFork)'; then
             xattr -lr "$APP"
-            echo "::error::Extended attributes remain on the bundle after stripping."
+            echo "::error::Code-signing-blocking extended attributes remain after stripping."
             exit 1
           fi
 

@@ -127,8 +127,15 @@ stehen zur Integritätsprüfung neben den Archiven bereit.
   umgesetzt (siehe Backlog-Punkt „1.6.3: Developer-ID-Signierung +
   Notarisierung verbindlich einplanen") — ohne echtes Zertifikat kann das
   in dieser Umgebung nicht nachgeholt werden. Bis dahin bleibt die
-  Gatekeeper-Warnung „unbekannter Entwickler" für macOS-Nutzer bestehen
-  (Workaround: Rechtsklick → Öffnen, oder `xattr -dr com.apple.quarantine`).
+  Gatekeeper-Warnung „unbekannter Entwickler" für macOS-Nutzer bestehen.
+  Die Pakete sind technisch geprüft, aber weder Developer-ID-signiert noch
+  notarisiert. Als Workaround kann im Finder **Rechtsklick → Öffnen** gewählt
+  werden. Alternativ (Beispielpfad nach dem Entpacken im Downloads-Ordner):
+
+  ```bash
+  xattr -dr com.apple.quarantine "$HOME/Downloads/AI GitHub Manager/AI GitHub Manager.app"
+  open "$HOME/Downloads/AI GitHub Manager/AI GitHub Manager.app"
+  ```
 - Das Hilfe-Fenster enthält noch keinen eigenen Abschnitt zu den
   „Erweiterten Befehlen" (Rebase/Cherry-Pick/Force Push/Reset/Hard
   Reset/Clean) — die Bedienoberfläche selbst erklärt jedes dieser Kommandos
