@@ -69,7 +69,26 @@ public sealed class MainWindowViewModel : ViewModelBase
     /// parameterless constructor passes <c>null</c> and gets the real, production
     /// <see cref="GitService"/> with the platform's real process detector.
     /// </summary>
-    internal MainWindowViewModel(GitService? gitService)
+    internal MainWindowViewModel(GitService? gitService) : this(gitService, projectStore: null) { }
+
+    /// <summary>
+    /// Test/DI seam: additionally allows injecting an isolated <see cref="JsonProjectStore"/>
+    /// (backed by a per-test temp file) instead of the real, production one, which always
+    /// resolves to the single shared <c>%AppData%/AI.GitHubManager/projects.json</c> path.
+    ///
+    /// This matters because the constructor kicks off an un-awaited background
+    /// <see cref="LoadProjectsAsync"/> (see bottom of this constructor) that later sets
+    /// <see cref="SelectedProject"/> — which itself side-effects <see cref="LocalPath"/>.
+    /// Without this seam, every test that used the production default store (via the
+    /// single-arg constructor above) shared that one real file on disk with every other
+    /// test in the same process; whichever test most recently saved a project there could
+    /// have its entry raced back in — silently overwriting a different test's
+    /// <see cref="LocalPath"/> or <see cref="SelectedProject"/> after that test had already
+    /// moved on, entirely independent of git or the operation under test. The parameterless
+    /// and single-arg constructors keep passing <c>null</c> and get the real, production
+    /// <see cref="JsonProjectStore"/>, so end-user/production behaviour is unchanged.
+    /// </summary>
+    internal MainWindowViewModel(GitService? gitService, JsonProjectStore? projectStore)
     {
         _git             = gitService ?? new GitService(_runner);
         _gh              = new GitHubCliService(_runner);
@@ -80,6 +99,7 @@ public sealed class MainWindowViewModel : ViewModelBase
         _installerBuild  = new InstallerBuildService(_runner);
         _safePull        = new SafePullService(_runner);
         _remoteDetection = new RemoteDetectionService(_git);
+        _store           = projectStore ?? _store;
 
         Projects = new ObservableCollection<ManagedProject>();
 

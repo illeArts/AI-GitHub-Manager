@@ -5,7 +5,7 @@
 ; ============================================================
 
 #define AppName      "AI GitHub Manager"
-#define AppVersion   "1.6.3"
+#define AppVersion   "1.6.4"
 #define AppPublisher "illeArts"
 #define AppURL       "https://github.com/illeArts"
 #define AppExeName   "AI.GitHubManager.App.exe"

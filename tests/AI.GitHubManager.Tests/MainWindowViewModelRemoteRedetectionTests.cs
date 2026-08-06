@@ -2,6 +2,7 @@ using AI.GitHubManager.App.ViewModels;
 using AI.GitHubManager.Core.Git;
 using AI.GitHubManager.Core.Process;
 using AI.GitHubManager.Core.Projects;
+using AI.GitHubManager.Data;
 using Xunit;
 
 namespace AI.GitHubManager.Tests;
@@ -16,8 +17,17 @@ public sealed class MainWindowViewModelRemoteRedetectionTests : IDisposable
 {
     private readonly string _root = Path.Combine(Path.GetTempPath(), "ai-github-manager-tests-vm-redetect", Guid.NewGuid().ToString("N"));
     private readonly CommandRunner _runner = new();
+    private readonly string _storeFile = Path.GetTempFileName();
 
     public MainWindowViewModelRemoteRedetectionTests() => Directory.CreateDirectory(_root);
+
+    /// <summary>
+    /// Isolated per-test <see cref="JsonProjectStore"/> — see the identical helper (and its
+    /// doc comment explaining the shared-file race it avoids) in
+    /// MainWindowViewModelAdvancedOperationTests.NewViewModel.
+    /// </summary>
+    private MainWindowViewModel NewViewModel() =>
+        new(new GitService(_runner), new JsonProjectStore(_storeFile));
 
     [Fact]
     public async Task RedetectRemote_UnchangedRemote_SavesWithoutAskingForConfirmation()
@@ -36,10 +46,8 @@ public sealed class MainWindowViewModelRemoteRedetectionTests : IDisposable
         };
 
         var confirmationsAsked = 0;
-        var vm = new MainWindowViewModel(new GitService(_runner))
-        {
-            ConfirmYesNoFunc = (_, _) => { confirmationsAsked++; return Task.FromResult(true); },
-        };
+        var vm = NewViewModel();
+        vm.ConfirmYesNoFunc = (_, _) => { confirmationsAsked++; return Task.FromResult(true); };
         vm.Projects.Add(project);
 
         await ((RelayCommand<ManagedProject>)vm.RedetectRemoteCommand).ExecuteAsync(project);
@@ -65,10 +73,8 @@ public sealed class MainWindowViewModelRemoteRedetectionTests : IDisposable
         };
 
         var confirmationsAsked = 0;
-        var vm = new MainWindowViewModel(new GitService(_runner))
-        {
-            ConfirmYesNoFunc = (_, _) => { confirmationsAsked++; return Task.FromResult(true); },
-        };
+        var vm = NewViewModel();
+        vm.ConfirmYesNoFunc = (_, _) => { confirmationsAsked++; return Task.FromResult(true); };
         vm.Projects.Add(project);
 
         await ((RelayCommand<ManagedProject>)vm.RedetectRemoteCommand).ExecuteAsync(project);
@@ -95,11 +101,9 @@ public sealed class MainWindowViewModelRemoteRedetectionTests : IDisposable
             LinuxPath = repo,
         };
 
-        var vm = new MainWindowViewModel(new GitService(_runner))
-        {
-            // The user says "no" to overwriting their manual assignment.
-            ConfirmYesNoFunc = (_, _) => Task.FromResult(false),
-        };
+        var vm = NewViewModel();
+        // The user says "no" to overwriting their manual assignment.
+        vm.ConfirmYesNoFunc = (_, _) => Task.FromResult(false);
         vm.Projects.Add(project);
 
         await ((RelayCommand<ManagedProject>)vm.RedetectRemoteCommand).ExecuteAsync(project);
@@ -130,5 +134,7 @@ public sealed class MainWindowViewModelRemoteRedetectionTests : IDisposable
 
             Directory.Delete(_root, recursive: true);
         }
+
+        if (File.Exists(_storeFile)) File.Delete(_storeFile);
     }
 }

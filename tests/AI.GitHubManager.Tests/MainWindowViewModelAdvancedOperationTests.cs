@@ -3,6 +3,7 @@ using AI.GitHubManager.App.Views;
 using AI.GitHubManager.Core.Git;
 using AI.GitHubManager.Core.Operations;
 using AI.GitHubManager.Core.Process;
+using AI.GitHubManager.Data;
 using Xunit;
 
 namespace AI.GitHubManager.Tests;
@@ -16,17 +17,34 @@ public sealed class MainWindowViewModelAdvancedOperationTests : IDisposable
 {
     private readonly string _root = Path.Combine(Path.GetTempPath(), "ai-github-manager-tests-vm-advanced", Guid.NewGuid().ToString("N"));
     private readonly CommandRunner _runner = new();
+    private readonly string _storeFile = Path.GetTempFileName();
 
     public MainWindowViewModelAdvancedOperationTests()
     {
         Directory.CreateDirectory(_root);
     }
 
+    /// <summary>
+    /// Every test below must use its own isolated <see cref="JsonProjectStore"/> file
+    /// rather than the production default (which always resolves to the single, real
+    /// <c>%AppData%/AI.GitHubManager/projects.json</c>). <see cref="MainWindowViewModel"/>'s
+    /// constructor fires an un-awaited background project load that later assigns
+    /// <see cref="MainWindowViewModel.SelectedProject"/> — which side-effects
+    /// <see cref="MainWindowViewModel.LocalPath"/> — so sharing that one real file across
+    /// concurrently-running tests let one test's leftover project race in and silently
+    /// overwrite another test's <c>LocalPath</c> after it had already been explicitly set.
+    /// This was the actual root cause of a previously-flaky failure here, unrelated to git
+    /// or to the operation under test.
+    /// </summary>
+    private MainWindowViewModel NewViewModel() =>
+        new(new GitService(_runner), new JsonProjectStore(_storeFile));
+
     [Fact]
     public async Task ExecuteAdvancedOperationCommand_WithoutConfirmFuncWired_DoesNotExecute()
     {
         var repo = await CreateRepoWithUntrackedFileAsync();
-        var vm = new MainWindowViewModel(new GitService(_runner)) { LocalPath = repo };
+        var vm = NewViewModel();
+        vm.LocalPath = repo;
         // ConfirmAdvancedOperationFunc intentionally left null.
 
         await ((RelayCommand<GitOperationDefinition>)vm.ExecuteAdvancedOperationCommand)
@@ -40,12 +58,10 @@ public sealed class MainWindowViewModelAdvancedOperationTests : IDisposable
     public async Task ExecuteAdvancedOperationCommand_ConfirmationDeclined_DoesNotExecute()
     {
         var repo = await CreateRepoWithUntrackedFileAsync();
-        var vm = new MainWindowViewModel(new GitService(_runner))
-        {
-            LocalPath = repo,
-            ConfirmAdvancedOperationFunc = _ => Task.FromResult<AdvancedOperationConfirmationResult?>(
-                new AdvancedOperationConfirmationResult(false, null)),
-        };
+        var vm = NewViewModel();
+        vm.LocalPath = repo;
+        vm.ConfirmAdvancedOperationFunc = _ => Task.FromResult<AdvancedOperationConfirmationResult?>(
+            new AdvancedOperationConfirmationResult(false, null));
 
         await ((RelayCommand<GitOperationDefinition>)vm.ExecuteAdvancedOperationCommand)
             .ExecuteAsync(GitOperationCatalog.Clean);
@@ -58,11 +74,9 @@ public sealed class MainWindowViewModelAdvancedOperationTests : IDisposable
     public async Task ExecuteAdvancedOperationCommand_ConfirmationNull_DoesNotExecute()
     {
         var repo = await CreateRepoWithUntrackedFileAsync();
-        var vm = new MainWindowViewModel(new GitService(_runner))
-        {
-            LocalPath = repo,
-            ConfirmAdvancedOperationFunc = _ => Task.FromResult<AdvancedOperationConfirmationResult?>(null),
-        };
+        var vm = NewViewModel();
+        vm.LocalPath = repo;
+        vm.ConfirmAdvancedOperationFunc = _ => Task.FromResult<AdvancedOperationConfirmationResult?>(null);
 
         await ((RelayCommand<GitOperationDefinition>)vm.ExecuteAdvancedOperationCommand)
             .ExecuteAsync(GitOperationCatalog.Clean);
@@ -74,12 +88,10 @@ public sealed class MainWindowViewModelAdvancedOperationTests : IDisposable
     public async Task ExecuteAdvancedOperationCommand_ConfirmedClean_ActuallyExecutes()
     {
         var repo = await CreateRepoWithUntrackedFileAsync();
-        var vm = new MainWindowViewModel(new GitService(_runner))
-        {
-            LocalPath = repo,
-            ConfirmAdvancedOperationFunc = _ => Task.FromResult<AdvancedOperationConfirmationResult?>(
-                new AdvancedOperationConfirmationResult(true, null)),
-        };
+        var vm = NewViewModel();
+        vm.LocalPath = repo;
+        vm.ConfirmAdvancedOperationFunc = _ => Task.FromResult<AdvancedOperationConfirmationResult?>(
+            new AdvancedOperationConfirmationResult(true, null));
 
         await ((RelayCommand<GitOperationDefinition>)vm.ExecuteAdvancedOperationCommand)
             .ExecuteAsync(GitOperationCatalog.Clean);
@@ -92,12 +104,10 @@ public sealed class MainWindowViewModelAdvancedOperationTests : IDisposable
     public async Task ExecuteAdvancedOperationCommand_ConfirmedHardResetWithInvalidTargetRef_ReportsErrorAndDoesNotCallGitDestructively()
     {
         var repo = await CreateRepoWithUntrackedFileAsync();
-        var vm = new MainWindowViewModel(new GitService(_runner))
-        {
-            LocalPath = repo,
-            ConfirmAdvancedOperationFunc = _ => Task.FromResult<AdvancedOperationConfirmationResult?>(
-                new AdvancedOperationConfirmationResult(true, "-D")), // unsafe ref must be rejected, not passed to git
-        };
+        var vm = NewViewModel();
+        vm.LocalPath = repo;
+        vm.ConfirmAdvancedOperationFunc = _ => Task.FromResult<AdvancedOperationConfirmationResult?>(
+            new AdvancedOperationConfirmationResult(true, "-D")); // unsafe ref must be rejected, not passed to git
 
         await ((RelayCommand<GitOperationDefinition>)vm.ExecuteAdvancedOperationCommand)
             .ExecuteAsync(GitOperationCatalog.HardReset);
@@ -135,5 +145,7 @@ public sealed class MainWindowViewModelAdvancedOperationTests : IDisposable
 
             Directory.Delete(_root, recursive: true);
         }
+
+        if (File.Exists(_storeFile)) File.Delete(_storeFile);
     }
 }
