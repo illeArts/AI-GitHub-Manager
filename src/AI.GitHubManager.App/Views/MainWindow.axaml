@@ -88,40 +88,49 @@
           <ListBox x:Name="ProjectsListBox" ItemsSource="{Binding Projects}" SelectedItem="{Binding SelectedProject}">
             <ListBox.ItemTemplate>
               <DataTemplate>
-                <StackPanel Margin="4" PointerPressed="OnProjectItemPointerPressed">
+                <StackPanel Margin="4" PointerPressed="OnProjectItemPointerPressed"
+                            AutomationProperties.Name="{Binding Name}">
                   <StackPanel.ContextMenu>
-                    <ContextMenu>
+                    <ContextMenu AutomationProperties.Name="{Binding Name, StringFormat='Projektmenü: {0}'}">
                       <MenuItem Header="Auf GitHub öffnen"
                                 Command="{Binding #ProjectsListBox.DataContext.OpenOnGitHubCommand}"
-                                CommandParameter="{Binding}" />
+                                CommandParameter="{Binding}"
+                                AutomationProperties.Name="Auf GitHub öffnen"
+                                AutomationProperties.HelpText="{Binding RepositoryWebUrl}" />
                       <MenuItem Header="GitHub-Link kopieren"
                                 IsVisible="{Binding HasGitHubLink}"
                                 Command="{Binding #ProjectsListBox.DataContext.CopyGitHubLinkCommand}"
-                                CommandParameter="{Binding}" />
+                                CommandParameter="{Binding}"
+                                AutomationProperties.Name="GitHub-Link kopieren" />
                       <Separator />
                       <MenuItem Header="GitHub-Link festlegen …"
                                 IsVisible="{Binding !HasGitHubLink}"
                                 Command="{Binding #ProjectsListBox.DataContext.SetGitHubLinkCommand}"
-                                CommandParameter="{Binding}" />
+                                CommandParameter="{Binding}"
+                                AutomationProperties.Name="GitHub-Link festlegen" />
                       <MenuItem Header="GitHub-Link bearbeiten …"
                                 IsVisible="{Binding HasGitHubLink}"
                                 Command="{Binding #ProjectsListBox.DataContext.SetGitHubLinkCommand}"
-                                CommandParameter="{Binding}" />
+                                CommandParameter="{Binding}"
+                                AutomationProperties.Name="GitHub-Link bearbeiten" />
                       <MenuItem Header="Remote erneut erkennen"
                                 Command="{Binding #ProjectsListBox.DataContext.RedetectRemoteCommand}"
-                                CommandParameter="{Binding}" />
+                                CommandParameter="{Binding}"
+                                AutomationProperties.Name="Remote erneut erkennen" />
                       <Separator />
                       <MenuItem Header="Projekt speichern"
-                                Command="{Binding #ProjectsListBox.DataContext.SaveProjectCommand}" />
+                                Command="{Binding #ProjectsListBox.DataContext.SaveProjectCommand}"
+                                AutomationProperties.Name="Projekt speichern" />
                       <MenuItem Header="Aus Manager entfernen …"
                                 Command="{Binding #ProjectsListBox.DataContext.RemoveProjectFromManagerCommand}"
-                                CommandParameter="{Binding}" />
+                                CommandParameter="{Binding}"
+                                AutomationProperties.Name="Aus Manager entfernen" />
                     </ContextMenu>
                   </StackPanel.ContextMenu>
                   <TextBlock Text="{Binding Name}"  FontWeight="SemiBold"
                              TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Name}" />
                   <TextBlock Text="{Binding Owner}" FontSize="12" Opacity="0.7"
-                             TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding RepositoryWebUrl}" />
+                             TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Owner}" />
                 </StackPanel>
               </DataTemplate>
             </ListBox.ItemTemplate>

@@ -136,6 +136,43 @@ public sealed class RemoteDetectionServiceTests : IDisposable
         Assert.Null(result.WebUrl);
     }
 
+    [Fact]
+    public async Task DetectAsync_InvalidOriginUrl_FailsWithoutFabricatingUrl()
+    {
+        var repo = CreatePath("invalid-origin");
+        Directory.CreateDirectory(repo);
+        await Git(repo, ["init"]);
+        // A syntactically-valid-for-git, but not owner/repo-parseable, remote
+        // (a bare local path — git accepts this as a remote, RemoteUrlNormalizer must not).
+        await Git(repo, ["remote", "add", "origin", "/tmp/some/local/bare-repo"]);
+
+        var result = await new RemoteDetectionService(new GitService(_runner)).DetectAsync(repo);
+
+        Assert.False(result.Success);
+        Assert.Null(result.WebUrl);
+        Assert.Null(result.Owner);
+        Assert.NotNull(result.ErrorMessage);
+        Assert.Equal("/tmp/some/local/bare-repo", result.RawRemoteUrl);
+    }
+
+    [Fact]
+    public async Task DetectAsync_SshUriFormOrganizationRemote_Resolves()
+    {
+        // The explicit ssh://git@host/owner/repo.git form (distinct from the
+        // git@host:owner/repo shorthand already covered above).
+        var repo = CreatePath("org-ssh-uri");
+        Directory.CreateDirectory(repo);
+        await Git(repo, ["init"]);
+        await Git(repo, ["remote", "add", "origin", "ssh://git@github.com/illeArts-Finance/bullbear.git"]);
+
+        var result = await new RemoteDetectionService(new GitService(_runner)).DetectAsync(repo);
+
+        Assert.True(result.Success, result.ErrorMessage);
+        Assert.Equal("illeArts-Finance", result.Owner);
+        Assert.Equal("bullbear", result.Repository);
+        Assert.Equal("https://github.com/illeArts-Finance/bullbear", result.WebUrl);
+    }
+
     private string CreatePath(string name) => Path.Combine(_root, name);
 
     private async Task Git(string workingDirectory, string[] arguments)
