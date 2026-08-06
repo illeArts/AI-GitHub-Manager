@@ -2,6 +2,7 @@ using Avalonia.Controls;
 using Avalonia.Platform.Storage;
 using AI.GitHubManager.App.Services;
 using AI.GitHubManager.App.ViewModels;
+using AI.GitHubManager.Core.Projects;
 
 namespace AI.GitHubManager.App.Views;
 
@@ -45,7 +46,33 @@ public partial class MainWindow : Window
             // without a real window.
             vm.ConfirmAdvancedOperationFunc = async request =>
                 await new ConfirmDangerousOperationWindow(request).ShowDialog<AdvancedOperationConfirmationResult?>(this);
+
+            // Project-list context menu: manual GitHub-link entry/edit dialog,
+            // generic yes/no confirmation, and clipboard access. Kept as
+            // injectable funcs (same pattern as above) so the ViewModel stays
+            // unit-testable without a real UI.
+            vm.GitHubLinkDialogFunc = async project =>
+                await new GitHubLinkDialogWindow(project).ShowDialog<GitHubLinkDialogResult?>(this);
+
+            vm.ConfirmYesNoFunc = async (title, message) =>
+                await new ConfirmYesNoWindow(title, message).ShowDialog<bool>(this);
+
+            vm.CopyToClipboardFunc = async text =>
+            {
+                var clipboard = GetTopLevel(this)?.Clipboard;
+                if (clipboard is not null) await clipboard.SetTextAsync(text);
+            };
         }
+    }
+
+    // ── Project-list context menu selection ─────────────────────────────────
+    // Right-click (like left-click) selects the item under the pointer first,
+    // so "Auf GitHub öffnen" etc. always act on the item the context menu was
+    // actually opened on, not whatever was selected before.
+    private void OnProjectItemPointerPressed(object? sender, Avalonia.Input.PointerPressedEventArgs e)
+    {
+        if (sender is Control { DataContext: ManagedProject project } && DataContext is MainWindowViewModel vm)
+            vm.SelectedProject = project;
     }
 
     // ── Menu handlers ─────────────────────────────────────────────────────────

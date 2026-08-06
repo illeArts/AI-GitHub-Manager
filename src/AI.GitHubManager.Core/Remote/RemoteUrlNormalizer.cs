@@ -31,6 +31,13 @@ public static class RemoteUrlNormalizer
         @"DEIN_VORHANDENER_TOKEN|<\s*[^>]*TOKEN[^>]*>|YOUR[_-]?TOKEN|\bDEIN[_-]\w*TOKEN\w*",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
+    // "owner/repo" shorthand, only accepted for manual entry (never for parsing
+    // a real git remote) — GitHub login/org name rules: alphanumeric and single
+    // hyphens, not starting/ending with one; repo names allow dots/underscores.
+    private static readonly Regex OwnerRepoShorthandPattern = new(
+        @"^(?<owner>[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})?)/(?<repo>[A-Za-z0-9._-]+)$",
+        RegexOptions.Compiled);
+
     /// <summary>Parses a remote URL. Returns null when the format is not recognised.</summary>
     public static RemoteUrlInfo? Parse(string? url)
     {
@@ -82,6 +89,36 @@ public static class RemoteUrlNormalizer
         return string.Equals(pa.Host, pb.Host, StringComparison.OrdinalIgnoreCase)
             && string.Equals(pa.Owner, pb.Owner, StringComparison.OrdinalIgnoreCase)
             && string.Equals(pa.Repository, pb.Repository, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// Parses user-typed manual GitHub link entry: accepts everything <see cref="Parse"/>
+    /// does, plus the bare "owner/repo" shorthand (assumed to be on github.com). Used only
+    /// for the manual-link dialog — never used to interpret a real git remote URL, and
+    /// never falls back to fabricating an owner from the logged-in GitHub CLI account.
+    /// Returns null when the input cannot be confidently parsed either way.
+    /// </summary>
+    public static RemoteUrlInfo? ParseManualEntry(string? input)
+    {
+        if (string.IsNullOrWhiteSpace(input)) return null;
+        var trimmed = input.Trim();
+
+        var direct = Parse(trimmed);
+        if (direct is not null) return direct;
+
+        var shorthand = OwnerRepoShorthandPattern.Match(trimmed);
+        if (shorthand.Success)
+        {
+            return new RemoteUrlInfo(
+                "github.com",
+                shorthand.Groups["owner"].Value,
+                shorthand.Groups["repo"].Value,
+                IsSsh: false,
+                ContainsCredentials: false,
+                MaskedCredential: null);
+        }
+
+        return null;
     }
 
     /// <summary>True when the URL embeds credentials (e.g. https://TOKEN@github.com/...).</summary>

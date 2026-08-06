@@ -85,12 +85,43 @@
                     Margin="4,0,0,0" HorizontalAlignment="Stretch" />
           </Grid>
 
-          <ListBox ItemsSource="{Binding Projects}" SelectedItem="{Binding SelectedProject}">
+          <ListBox x:Name="ProjectsListBox" ItemsSource="{Binding Projects}" SelectedItem="{Binding SelectedProject}">
             <ListBox.ItemTemplate>
               <DataTemplate>
-                <StackPanel Margin="4">
-                  <TextBlock Text="{Binding Name}"  FontWeight="SemiBold" />
-                  <TextBlock Text="{Binding Owner}" FontSize="12" Opacity="0.7" />
+                <StackPanel Margin="4" PointerPressed="OnProjectItemPointerPressed">
+                  <StackPanel.ContextMenu>
+                    <ContextMenu>
+                      <MenuItem Header="Auf GitHub öffnen"
+                                Command="{Binding #ProjectsListBox.DataContext.OpenOnGitHubCommand}"
+                                CommandParameter="{Binding}" />
+                      <MenuItem Header="GitHub-Link kopieren"
+                                IsVisible="{Binding HasGitHubLink}"
+                                Command="{Binding #ProjectsListBox.DataContext.CopyGitHubLinkCommand}"
+                                CommandParameter="{Binding}" />
+                      <Separator />
+                      <MenuItem Header="GitHub-Link festlegen …"
+                                IsVisible="{Binding !HasGitHubLink}"
+                                Command="{Binding #ProjectsListBox.DataContext.SetGitHubLinkCommand}"
+                                CommandParameter="{Binding}" />
+                      <MenuItem Header="GitHub-Link bearbeiten …"
+                                IsVisible="{Binding HasGitHubLink}"
+                                Command="{Binding #ProjectsListBox.DataContext.SetGitHubLinkCommand}"
+                                CommandParameter="{Binding}" />
+                      <MenuItem Header="Remote erneut erkennen"
+                                Command="{Binding #ProjectsListBox.DataContext.RedetectRemoteCommand}"
+                                CommandParameter="{Binding}" />
+                      <Separator />
+                      <MenuItem Header="Projekt speichern"
+                                Command="{Binding #ProjectsListBox.DataContext.SaveProjectCommand}" />
+                      <MenuItem Header="Aus Manager entfernen …"
+                                Command="{Binding #ProjectsListBox.DataContext.RemoveProjectFromManagerCommand}"
+                                CommandParameter="{Binding}" />
+                    </ContextMenu>
+                  </StackPanel.ContextMenu>
+                  <TextBlock Text="{Binding Name}"  FontWeight="SemiBold"
+                             TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Name}" />
+                  <TextBlock Text="{Binding Owner}" FontSize="12" Opacity="0.7"
+                             TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding RepositoryWebUrl}" />
                 </StackPanel>
               </DataTemplate>
             </ListBox.ItemTemplate>

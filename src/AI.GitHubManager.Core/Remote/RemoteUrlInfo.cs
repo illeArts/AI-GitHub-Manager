@@ -17,4 +17,7 @@ public sealed record RemoteUrlInfo(
 
     /// <summary>The canonical SSH remote URL for this repository.</summary>
     public string CanonicalSshUrl => $"git@{Host}:{Owner}/{Repository}.git";
+
+    /// <summary>The browsable GitHub web page for this repository — no ".git", no trailing slash.</summary>
+    public string WebUrl => $"https://{Host}/{Owner}/{Repository}";
 }

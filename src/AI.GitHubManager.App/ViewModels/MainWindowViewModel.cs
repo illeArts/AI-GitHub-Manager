@@ -1,7 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Text;
-using System.Text.RegularExpressions;
 using System.Windows.Input;
 using AI.GitHubManager.App.Services;
 using AI.GitHubManager.App.Views;
@@ -31,6 +30,7 @@ public sealed class MainWindowViewModel : ViewModelBase
     private readonly InstallerBuildService _installerBuild;
     private readonly UpdateCheckService _updateCheck = new();
     private readonly SafePullService _safePull;
+    private readonly RemoteDetectionService _remoteDetection;
     private readonly JsonProjectStore _store = new();
     private readonly AppSettingsService _settings = AppSettingsService.Load();
 
@@ -79,6 +79,7 @@ public sealed class MainWindowViewModel : ViewModelBase
         _projectBuild    = new ProjectBuildService(_runner);
         _installerBuild  = new InstallerBuildService(_runner);
         _safePull        = new SafePullService(_runner);
+        _remoteDetection = new RemoteDetectionService(_git);
 
         Projects = new ObservableCollection<ManagedProject>();
 
@@ -107,6 +108,14 @@ public sealed class MainWindowViewModel : ViewModelBase
         var removeOrphanedGitLock = new RelayCommand(RemoveOrphanedGitLockAsync, () => !IsBusy);
         var executeSelectedOperation = new RelayCommand(ExecuteSelectedOperationAsync, () => !IsBusy);
         var clearLog = new RelayCommand(() => { Log = Strings.OutputClearedNotice; return Task.CompletedTask; });
+
+        // ── Project-list context menu (Auf GitHub öffnen / GitHub-Link .../
+        //    Remote erneut erkennen / Aus Manager entfernen) ────────────────
+        var openOnGitHub          = new RelayCommand<ManagedProject>(OpenOnGitHubAsync, p => p is not null);
+        var copyGitHubLink        = new RelayCommand<ManagedProject>(CopyGitHubLinkAsync, p => p is { HasGitHubLink: true });
+        var setGitHubLink         = new RelayCommand<ManagedProject>(SetGitHubLinkAsync, p => p is not null);
+        var redetectRemote        = new RelayCommand<ManagedProject>(RedetectRemoteAsync, p => p is not null && !IsBusy);
+        var removeProjectFromManager = new RelayCommand<ManagedProject>(RemoveProjectFromManagerAsync, p => p is not null && !IsBusy);
         ClearLogCommand = clearLog;
         _executeAdvancedOperation = new RelayCommand<GitOperationDefinition>(ExecuteAdvancedOperationAsync, _ => !IsBusy);
         ExecuteAdvancedOperationCommand = _executeAdvancedOperation;
@@ -135,6 +144,11 @@ public sealed class MainWindowViewModel : ViewModelBase
         InstallInnoSetupCommand       = installInnoSetup;
         RemoveOrphanedGitLockCommand  = removeOrphanedGitLock;
         ExecuteSelectedOperationCommand = executeSelectedOperation;
+        OpenOnGitHubCommand           = openOnGitHub;
+        CopyGitHubLinkCommand         = copyGitHubLink;
+        SetGitHubLinkCommand          = setGitHubLink;
+        RedetectRemoteCommand         = redetectRemote;
+        RemoveProjectFromManagerCommand = removeProjectFromManager;
 
         _allCommands = new[]
         {
@@ -145,6 +159,12 @@ public sealed class MainWindowViewModel : ViewModelBase
             buildTestPush, createInstaller, installInnoSetup, removeOrphanedGitLock,
             executeSelectedOperation
         };
+
+        // openOnGitHub/copyGitHubLink/setGitHubLink/redetectRemote/removeProjectFromManager
+        // are RelayCommand<ManagedProject>, not RelayCommand, so (like
+        // _executeAdvancedOperation below) they aren't part of _allCommands — Avalonia's
+        // CommandParameter-bound MenuItem re-evaluates CanExecute on its own when the
+        // context menu opens, which is when these are actually used.
 
         // Restore the last safely-persisted operation selection (Teil B1/C).
         // Fault-tolerant: falls back to "Aktualisieren" for missing/unknown/
@@ -191,6 +211,13 @@ public sealed class MainWindowViewModel : ViewModelBase
     public ICommand ExecuteAdvancedOperationCommand { get; }
     public ICommand ClearLogCommand { get; }
 
+    // ── Project-list context menu ("Auf GitHub öffnen" etc.) ────────────────
+    public ICommand OpenOnGitHubCommand             { get; }
+    public ICommand CopyGitHubLinkCommand           { get; }
+    public ICommand SetGitHubLinkCommand            { get; }
+    public ICommand RedetectRemoteCommand           { get; }
+    public ICommand RemoveProjectFromManagerCommand { get; }
+
     private readonly RelayCommand<GitOperationDefinition> _executeAdvancedOperation;
 
     /// <summary>
@@ -199,6 +226,19 @@ public sealed class MainWindowViewModel : ViewModelBase
     /// ViewModel stays unit-testable without a real UI (Teil F).
     /// </summary>
     public Func<AdvancedOperationConfirmationRequest, Task<AdvancedOperationConfirmationResult?>>? ConfirmAdvancedOperationFunc { get; set; }
+
+    /// <summary>Shows the manual GitHub-link entry/edit dialog for a project. Returns
+    /// null when the user cancelled; otherwise a validated owner/repo/web URL.</summary>
+    public Func<ManagedProject, Task<GitHubLinkDialogResult?>>? GitHubLinkDialogFunc { get; set; }
+
+    /// <summary>Generic yes/no confirmation (title, message) → confirmed. Used before
+    /// overwriting a differing re-detected remote and before removing a project from
+    /// the manager. Defaults to "confirmed" only when no UI is wired up (unit tests).</summary>
+    public Func<string, string, Task<bool>>? ConfirmYesNoFunc { get; set; }
+
+    /// <summary>Copies text to the OS clipboard — set by the view, since Avalonia's
+    /// clipboard is reached via TopLevel, not available from the ViewModel.</summary>
+    public Func<string, Task>? CopyToClipboardFunc { get; set; }
 
     public ManagedProject? SelectedProject
     {
@@ -1001,15 +1041,22 @@ public sealed class MainWindowViewModel : ViewModelBase
 
             var status = await _git.GetStatusAsync(path);
             if (!string.IsNullOrWhiteSpace(status.RemoteOrigin))
-            {
                 project.RemoteUrl = status.RemoteOrigin;
-                var parsed = TryParseGitHubUrl(project.RemoteUrl);
-                if (parsed.HasValue)
-                    project.Owner = parsed.Value.Owner;
-            }
 
             if (!string.IsNullOrWhiteSpace(status.Branch))
                 project.DefaultBranch = status.Branch;
+
+            // Real GitHub link, always from the actual git remote — never
+            // fabricated from the logged-in gh account + folder name.
+            var detection = await _remoteDetection.DetectAsync(path);
+            if (detection.Success)
+            {
+                project.Owner            = detection.Owner!;
+                project.RepositoryOwner  = detection.Owner!;
+                project.RepositoryName   = detection.Repository!;
+                project.RepositoryWebUrl = detection.WebUrl!;
+                project.RemoteSource     = RemoteSource.GitOrigin;
+            }
 
             Projects.Add(project);
             SelectedProject = project;
@@ -1018,14 +1065,125 @@ public sealed class MainWindowViewModel : ViewModelBase
         });
     }
 
-    private async Task RemoveProjectAsync()
+    private Task RemoveProjectAsync() => RemoveProjectFromManagerAsync(SelectedProject);
+
+    /// <summary>
+    /// "Aus Manager entfernen …" — removes only the entry in projects.json.
+    /// Never touches the local folder and never calls any GitHub API to delete
+    /// the actual repository; those are explicitly out of scope. Confirms first
+    /// (unless no confirmation UI is wired up, e.g. in unit tests).
+    /// </summary>
+    private async Task RemoveProjectFromManagerAsync(ManagedProject? project)
     {
-        if (SelectedProject is null) return;
-        var name = SelectedProject.Name;
-        Projects.Remove(SelectedProject);
-        SelectedProject = Projects.FirstOrDefault();
+        if (project is null) return;
+
+        var confirmed = ConfirmYesNoFunc is null || await ConfirmYesNoFunc(
+            L.T("Aus Manager entfernen?", "Remove from manager?"),
+            L.T($"'{project.Name}' wird nur aus der Projektverwaltung entfernt. " +
+                "Der lokale Ordner und das GitHub-Repository bleiben unverändert.",
+                $"'{project.Name}' will only be removed from project management. " +
+                "The local folder and the GitHub repository stay untouched."));
+        if (!confirmed) return;
+
+        var name = project.Name;
+        Projects.Remove(project);
+        if (SelectedProject == project) SelectedProject = Projects.FirstOrDefault();
         await _store.SaveAsync(Projects);
-        Log = L.T($"Projekt '{name}' entfernt.", $"Project '{name}' removed.");
+        Log = L.T($"Projekt '{name}' aus dem Manager entfernt.", $"Project '{name}' removed from manager.");
+    }
+
+    /// <summary>"Auf GitHub öffnen" — opens the project's real GitHub page in the
+    /// default browser. If no link is known yet, opens the manual-entry dialog
+    /// instead of guessing one.</summary>
+    private async Task OpenOnGitHubAsync(ManagedProject? project)
+    {
+        if (project is null) return;
+
+        if (!project.HasGitHubLink)
+        {
+            await SetGitHubLinkAsync(project);
+            if (!project.HasGitHubLink) return;
+        }
+
+        try
+        {
+            Process.Start(new ProcessStartInfo(project.RepositoryWebUrl) { UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            Log = L.T($"GitHub-Seite konnte nicht geöffnet werden: {ex.Message}", $"Could not open the GitHub page: {ex.Message}");
+        }
+    }
+
+    /// <summary>"GitHub-Link kopieren" — copies the real repository web URL to the clipboard.</summary>
+    private async Task CopyGitHubLinkAsync(ManagedProject? project)
+    {
+        if (project is null || !project.HasGitHubLink || CopyToClipboardFunc is null) return;
+        await CopyToClipboardFunc(project.RepositoryWebUrl);
+        Log = L.T("GitHub-Link in die Zwischenablage kopiert.", "GitHub link copied to clipboard.");
+    }
+
+    /// <summary>"GitHub-Link festlegen …" / "GitHub-Link bearbeiten …" — manual entry,
+    /// used when no (parseable) git origin remote exists. Never fabricates a URL:
+    /// the dialog only returns a result once the typed input parses as a real
+    /// GitHub URL or "owner/repo" shorthand.</summary>
+    private async Task SetGitHubLinkAsync(ManagedProject? project)
+    {
+        if (project is null || GitHubLinkDialogFunc is null) return;
+
+        var result = await GitHubLinkDialogFunc(project);
+        if (result is null) return; // cancelled
+
+        project.RepositoryOwner  = result.Owner;
+        project.RepositoryName   = result.Repository;
+        project.RepositoryWebUrl = result.WebUrl;
+        project.RemoteSource     = RemoteSource.Manual;
+        project.Owner             = result.Owner;
+        project.UpdatedAt        = DateTimeOffset.UtcNow;
+
+        await _store.SaveAsync(Projects);
+        Log = L.T($"GitHub-Link für '{project.Name}' gespeichert.", $"GitHub link for '{project.Name}' saved.");
+    }
+
+    /// <summary>"Remote erneut erkennen" — re-runs git-origin detection. If the
+    /// detected link differs from the currently stored one, asks for confirmation
+    /// before overwriting (never overwrites silently).</summary>
+    private async Task RedetectRemoteAsync(ManagedProject? project)
+    {
+        if (project is null) return;
+
+        await Busy(async () =>
+        {
+            var path = project.GetPathForCurrentPlatform();
+            var detection = await _remoteDetection.DetectAsync(path);
+            if (!detection.Success)
+            {
+                Log = detection.ErrorMessage ?? L.T("Remote konnte nicht erkannt werden.", "Could not detect the remote.");
+                return;
+            }
+
+            bool differsFromStored = project.HasGitHubLink &&
+                !string.Equals(detection.WebUrl, project.RepositoryWebUrl, StringComparison.OrdinalIgnoreCase);
+
+            if (differsFromStored)
+            {
+                var confirmed = ConfirmYesNoFunc is null || await ConfirmYesNoFunc(
+                    L.T("Abweichenden Remote übernehmen?", "Use the differing remote?"),
+                    L.T($"Gespeichert: {project.RepositoryWebUrl}\nErkannt: {detection.WebUrl}\n\nGespeicherten Link überschreiben?",
+                        $"Stored: {project.RepositoryWebUrl}\nDetected: {detection.WebUrl}\n\nOverwrite the stored link?"));
+                if (!confirmed) return;
+            }
+
+            project.Owner             = detection.Owner!;
+            project.RepositoryOwner  = detection.Owner!;
+            project.RepositoryName   = detection.Repository!;
+            project.RepositoryWebUrl = detection.WebUrl!;
+            project.RemoteSource     = RemoteSource.GitOrigin;
+            project.UpdatedAt        = DateTimeOffset.UtcNow;
+
+            await _store.SaveAsync(Projects);
+            Log = L.T("Remote erneut erkannt und gespeichert.", "Remote re-detected and saved.");
+        });
     }
 
     private async Task ImportGitHubReposAsync()
@@ -1052,10 +1210,16 @@ public sealed class MainWindowViewModel : ViewModelBase
 
                 Projects.Add(new ManagedProject
                 {
-                    Name          = repo.Name,
-                    Owner         = repo.Owner,
-                    RemoteUrl     = url + ".git",
-                    DefaultBranch = repo.DefaultBranch
+                    Name             = repo.Name,
+                    Owner            = repo.Owner,
+                    RemoteUrl        = url + ".git",
+                    DefaultBranch    = repo.DefaultBranch,
+                    // Real link straight from gh's own repo listing — same rule as
+                    // everywhere else: never combined from the logged-in account name.
+                    RepositoryOwner  = repo.Owner,
+                    RepositoryName   = repo.Name,
+                    RepositoryWebUrl = url.TrimSuffix(".git"),
+                    RemoteSource     = RemoteSource.Imported
                 });
                 added++;
             }
@@ -1330,12 +1494,6 @@ public sealed class MainWindowViewModel : ViewModelBase
         if (OperatingSystem.IsWindows())    SelectedProject.WindowsPath = LocalPath;
         else if (OperatingSystem.IsMacOS()) SelectedProject.MacPath     = LocalPath;
         else                                SelectedProject.LinuxPath   = LocalPath;
-    }
-
-    private static (string Owner, string Repo)? TryParseGitHubUrl(string url)
-    {
-        var m = Regex.Match(url, @"github\.com[/:]([^/]+)/([^/\.]+)");
-        return m.Success ? (m.Groups[1].Value, m.Groups[2].Value) : null;
     }
 
     private async Task Busy(Func<Task> action)

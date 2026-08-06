@@ -1,6 +1,6 @@
 # AI GitHub Manager
 
-[![Version](https://img.shields.io/badge/version-1.6.3-blue)](#aktueller-funktionsstand)
+[![Version](https://img.shields.io/badge/version-1.6.4-blue)](#aktueller-funktionsstand)
 [![Platforms](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey)](#voraussetzungen)
 [![License](https://img.shields.io/badge/license-proprietary%20community--use-orange)](LICENSE)
 
@@ -187,7 +187,7 @@ gh auth setup-git
 
 ## Aktueller Funktionsstand
 
-Aktuelle Projektversion: **1.6.3**
+Aktuelle Projektversion: **1.6.4**
 
 Das vollständige Benutzerhandbuch (Schnellstart, alle Befehle, Fehlerbehebung, Sicherheit) ist im
 Menü **Hilfe → Hilfe / Befehle** der App verfügbar und existiert auf Deutsch und Englisch.
