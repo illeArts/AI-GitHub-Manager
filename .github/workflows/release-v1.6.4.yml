@@ -1,24 +1,24 @@
-name: Release v1.6.3 — Windows, macOS and Linux
+name: Release v1.6.4 — Windows, macOS and Linux
 
 on:
   push:
     branches:
       - main
     paths:
-      - '.github/workflows/release-v1.6.3.yml'
+      - '.github/workflows/release-v1.6.4.yml'
       - 'installer/AI-GitHub-Manager.iss'
-      - 'RELEASE_NOTES_v1.6.3.md'
+      - 'RELEASE_NOTES_v1.6.4.md'
   workflow_dispatch:
 
 permissions:
   contents: write
 
 concurrency:
-  group: release-v1.6.3-windows-linux
+  group: release-v1.6.4-windows-linux
   cancel-in-progress: true
 
 env:
-  VERSION: 1.6.3
+  VERSION: 1.6.4
   PROJECT: src/AI.GitHubManager.App/AI.GitHubManager.App.csproj
 
 jobs:
@@ -27,21 +27,21 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up .NET 8
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v6
         with:
           dotnet-version: 8.0.x
 
       - name: Verify project and installer versions
         shell: bash
         run: |
-          grep -q '<Version>1.6.3</Version>' "$PROJECT"
-          grep -q '<AssemblyVersion>1.6.3.0</AssemblyVersion>' "$PROJECT"
-          grep -q '<FileVersion>1.6.3.0</FileVersion>' "$PROJECT"
-          grep -q '<InformationalVersion>1.6.3</InformationalVersion>' "$PROJECT"
-          grep -q '#define AppVersion "1.6.3"' installer/AI-GitHub-Manager.iss
+          grep -q '<Version>1.6.4</Version>' "$PROJECT"
+          grep -q '<AssemblyVersion>1.6.4.0</AssemblyVersion>' "$PROJECT"
+          grep -q '<FileVersion>1.6.4.0</FileVersion>' "$PROJECT"
+          grep -q '<InformationalVersion>1.6.4</InformationalVersion>' "$PROJECT"
+          grep -q '#define AppVersion "1.6.4"' installer/AI-GitHub-Manager.iss
 
       - name: Restore
         run: dotnet restore AI.GitHubManager.sln
@@ -70,10 +70,10 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up .NET 8
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v6
         with:
           dotnet-version: 8.0.x
 
@@ -97,7 +97,7 @@ jobs:
           cp PRIVACY.md "artifacts/publish/${{ matrix.rid }}/PRIVACY.md"
           cp SECURITY.md "artifacts/publish/${{ matrix.rid }}/SECURITY.md"
           cp THIRD-PARTY-NOTICES.md "artifacts/publish/${{ matrix.rid }}/THIRD-PARTY-NOTICES.md"
-          cp RELEASE_NOTES_v1.6.3.md "artifacts/publish/${{ matrix.rid }}/RELEASE_NOTES.md"
+          cp RELEASE_NOTES_v1.6.4.md "artifacts/publish/${{ matrix.rid }}/RELEASE_NOTES.md"
 
       - name: Create Windows archive
         if: matrix.archive == 'zip'
@@ -117,7 +117,7 @@ jobs:
           sha256sum "$file" > "$file.sha256"
 
       - name: Upload portable package
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: ${{ matrix.name }}
           path: |
@@ -139,10 +139,10 @@ jobs:
     runs-on: macos-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up .NET 8
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v6
         with:
           dotnet-version: 8.0.x
 
@@ -345,7 +345,7 @@ jobs:
           VERSION: ${{ env.VERSION }}
 
       - name: Upload macOS package
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: macos-${{ matrix.arch_label }}
           path: |
@@ -360,10 +360,10 @@ jobs:
     runs-on: windows-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up .NET 8
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v6
         with:
           dotnet-version: 8.0.x
 
@@ -383,7 +383,7 @@ jobs:
           Copy-Item PRIVACY.md artifacts/publish/win-x64/PRIVACY.md
           Copy-Item SECURITY.md artifacts/publish/win-x64/SECURITY.md
           Copy-Item THIRD-PARTY-NOTICES.md artifacts/publish/win-x64/THIRD-PARTY-NOTICES.md
-          Copy-Item RELEASE_NOTES_v1.6.3.md artifacts/publish/win-x64/RELEASE_NOTES.md
+          Copy-Item RELEASE_NOTES_v1.6.4.md artifacts/publish/win-x64/RELEASE_NOTES.md
 
       - name: Install Inno Setup 6
         shell: pwsh
@@ -412,7 +412,7 @@ jobs:
           "$hash  AI_GitHub_Manager_Setup_${env:VERSION}_win-x64.exe" | Set-Content "$installer.sha256" -Encoding ascii
 
       - name: Upload Windows installer
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: windows-installer
           path: |
@@ -430,10 +430,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Download Windows and Linux assets
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           path: release-assets
           merge-multiple: true
@@ -447,14 +447,14 @@ jobs:
             gh release upload "v${VERSION}" release-assets/* --clobber
             gh release edit "v${VERSION}" \
               --title "AI GitHub Manager v${VERSION}" \
-              --notes-file RELEASE_NOTES_v1.6.3.md \
+              --notes-file RELEASE_NOTES_v1.6.4.md \
               --latest
           else
             gh release create "v${VERSION}" \
               release-assets/* \
               --target "${GITHUB_SHA}" \
               --title "AI GitHub Manager v${VERSION}" \
-              --notes-file RELEASE_NOTES_v1.6.3.md \
+              --notes-file RELEASE_NOTES_v1.6.4.md \
               --latest \
               --verify-tag=false
           fi

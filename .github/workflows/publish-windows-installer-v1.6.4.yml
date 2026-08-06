@@ -1,11 +1,11 @@
-name: Publish Windows installer v1.6.3
+name: Publish Windows installer v1.6.4
 
 on:
   push:
     branches:
       - main
     paths:
-      - '.github/workflows/publish-windows-installer-v1.6.3.yml'
+      - '.github/workflows/publish-windows-installer-v1.6.4.yml'
       - 'installer/AI-GitHub-Manager.iss'
       - 'src/**'
       - 'tests/**'
@@ -16,7 +16,7 @@ permissions:
   contents: write
 
 env:
-  VERSION: 1.6.3
+  VERSION: 1.6.4
   PROJECT: src/AI.GitHubManager.App/AI.GitHubManager.App.csproj
 
 jobs:
@@ -25,20 +25,20 @@ jobs:
     runs-on: windows-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up .NET 8
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v6
         with:
           dotnet-version: 8.0.x
 
       - name: Verify version
         shell: pwsh
         run: |
-          Select-String -Path $env:PROJECT -Pattern '<Version>1.6.3</Version>' -Quiet | Out-Null
-          if (-not $?) { throw 'Project version is not 1.6.3.' }
-          Select-String -Path installer/AI-GitHub-Manager.iss -Pattern '#define AppVersion "1.6.3"' -Quiet | Out-Null
-          if (-not $?) { throw 'Installer version is not 1.6.3.' }
+          Select-String -Path $env:PROJECT -Pattern '<Version>1.6.4</Version>' -Quiet | Out-Null
+          if (-not $?) { throw 'Project version is not 1.6.4.' }
+          Select-String -Path installer/AI-GitHub-Manager.iss -Pattern '#define AppVersion "1.6.4"' -Quiet | Out-Null
+          if (-not $?) { throw 'Installer version is not 1.6.4.' }
 
       - name: Restore, build and test
         shell: pwsh
@@ -63,7 +63,7 @@ jobs:
           Copy-Item PRIVACY.md artifacts/publish/win-x64/PRIVACY.md
           Copy-Item SECURITY.md artifacts/publish/win-x64/SECURITY.md
           Copy-Item THIRD-PARTY-NOTICES.md artifacts/publish/win-x64/THIRD-PARTY-NOTICES.md
-          Copy-Item RELEASE_NOTES_v1.6.3.md artifacts/publish/win-x64/RELEASE_NOTES.md
+          Copy-Item RELEASE_NOTES_v1.6.4.md artifacts/publish/win-x64/RELEASE_NOTES.md
 
       - name: Install Inno Setup 6
         shell: pwsh
@@ -86,21 +86,21 @@ jobs:
           "$hash  AI_GitHub_Manager_Setup_${env:VERSION}_win-x64.exe" | Set-Content "$installer.sha256" -Encoding ascii
 
       - name: Upload workflow artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
-          name: windows-installer-v1.6.3
+          name: windows-installer-v1.6.4
           path: |
-            artifacts/installer/AI_GitHub_Manager_Setup_1.6.3_win-x64.exe
-            artifacts/installer/AI_GitHub_Manager_Setup_1.6.3_win-x64.exe.sha256
+            artifacts/installer/AI_GitHub_Manager_Setup_1.6.4_win-x64.exe
+            artifacts/installer/AI_GitHub_Manager_Setup_1.6.4_win-x64.exe.sha256
           if-no-files-found: error
           retention-days: 30
 
-      - name: Attach installer to release v1.6.3
+      - name: Attach installer to release v1.6.4
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release upload v1.6.3 `
-            artifacts/installer/AI_GitHub_Manager_Setup_1.6.3_win-x64.exe `
-            artifacts/installer/AI_GitHub_Manager_Setup_1.6.3_win-x64.exe.sha256 `
+          gh release upload v1.6.4 `
+            artifacts/installer/AI_GitHub_Manager_Setup_1.6.4_win-x64.exe `
+            artifacts/installer/AI_GitHub_Manager_Setup_1.6.4_win-x64.exe.sha256 `
             --clobber

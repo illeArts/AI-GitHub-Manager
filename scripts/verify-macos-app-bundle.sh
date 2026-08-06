@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # verify-macos-app-bundle.sh
 #
-# Run this ON A MAC to verify the macOS app bundles used by release-v1.6.3.yml.
+# Run this ON A MAC to verify the macOS app bundles used by release-v1.6.4.yml.
 # It builds both macOS .app bundles locally exactly the way the
-# release-v1.6.3.yml "macos-packages" job does, ad-hoc signs them, and
+# release-v1.6.4.yml "macos-packages" job does, ad-hoc signs them, and
 # runs every check from the acceptance criteria. It aborts hard (non-zero
 # exit) the moment any signing or verification step fails — it never
 # produces a ZIP from a bundle that isn't actually signed and verified.
@@ -41,7 +41,7 @@
 set -euo pipefail
 
 APP_NAME="AI GitHub Manager"
-VERSION="1.6.3"
+VERSION="1.6.4"
 BUNDLE_ID="com.illearts.AIGitHubManager"
 PROJECT="src/AI.GitHubManager.App/AI.GitHubManager.App.csproj"
 REPO_ROOT="$(pwd)"
@@ -310,4 +310,4 @@ echo "'spctl rejected' above is EXPECTED for ad-hoc signing without Developer ID
 echo "+ notarization — it is not an error in this script. Other users' Macs will"
 echo "show an 'unidentified developer' Gatekeeper warning until Developer ID"
 echo "signing + notarization secrets are added to CI (see the commented-out"
-echo "steps in .github/workflows/release-v1.6.3.yml)."
+echo "steps in .github/workflows/release-v1.6.4.yml)."

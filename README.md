@@ -192,19 +192,41 @@ Aktuelle Projektversion: **1.6.4**
 Das vollständige Benutzerhandbuch (Schnellstart, alle Befehle, Fehlerbehebung, Sicherheit) ist im
 Menü **Hilfe → Hilfe / Befehle** der App verfügbar und existiert auf Deutsch und Englisch.
 
-Noch offen (Stand 1.6.3, siehe RELEASE_NOTES_v1.6.3.md „Bekannte Einschränkungen“):
+Noch offen (Stand 1.6.4, siehe RELEASE_NOTES_v1.6.4.md „Bekannte Einschränkungen“):
 
 - Developer-ID-Signierung und Notarisierung für macOS (aktuell nur Ad-hoc-Signatur,
   Gatekeeper-Warnung bleibt bestehen);
-- eigener Hilfe-Abschnitt zu den „Erweiterten Befehlen“ (Rebase/Cherry-Pick/Force
+- manueller End-to-End-Test des Windows-Installers auf einem echten
+  Windows-System (Installation, Start, Kontextmenü, „Auf GitHub öffnen“);
+- eigener Hilfe-Abschnitt zu den „Erweiterten Befehlen” (Rebase/Cherry-Pick/Force
   Push/Reset/Hard Reset/Clean) — die Bedienoberfläche selbst erklärt sie bereits
   vollständig im Bestätigungsdialog;
 - vollständige Tastatur-/Screenreader-Durchgängigkeit über die gesamte Anwendung
-  (bisher nur an den zentralen Bedienelementen ergänzt);
+  (bisher nur an den zentralen Bedienelementen und im neuen Projekt-Kontextmenü
+  ergänzt);
 - Oberfläche und Lokalisierung des Exportdialogs vereinheitlichen;
 - Regressionstests bei neuen Randfällen erweitern.
 
 ## Änderungsprotokoll (Changelog)
+
+### Version 1.6.4 — GitHub-Remote-Erkennung und Projekt-Kontextmenü
+
+- Der GitHub-Link eines Projekts wird jetzt ausschließlich aus dem echten
+  `git remote get-url origin` oder einer validierten manuellen Eingabe
+  abgeleitet — nie aus dem angemeldeten GitHub-Account kombiniert mit dem
+  lokalen Projektnamen. Organisations- und persönliche Repositories werden
+  identisch behandelt.
+- Neues Rechtsklick-Kontextmenü in der Projektliste: „Auf GitHub öffnen“,
+  „GitHub-Link kopieren“, „GitHub-Link festlegen/bearbeiten …“, „Remote
+  erneut erkennen“, „Projekt speichern“, „Aus Manager entfernen …“ (löscht
+  nie den lokalen Ordner oder das GitHub-Repository).
+- „Remote erneut erkennen“ fragt vor dem Überschreiben eines abweichenden,
+  insbesondere manuell gesetzten Links explizit nach Bestätigung.
+- Alte `projects.json`-Dateien laden unverändert weiter; neue Felder
+  (`RepositoryWebUrl`, `RepositoryOwner`, `RepositoryName`, `RemoteSource`)
+  erhalten sichere Standardwerte.
+- Vollständige Details, Testergebnisse und bekannte Einschränkungen siehe
+  [`RELEASE_NOTES_v1.6.4.md`](RELEASE_NOTES_v1.6.4.md).
 
 ### Version 1.6.3 — Verständliche Git-Bedienung, macOS-/Linux-Parität
 
