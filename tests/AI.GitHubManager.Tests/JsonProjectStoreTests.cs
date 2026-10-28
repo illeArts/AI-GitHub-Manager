@@ -97,4 +97,20 @@ public class JsonProjectStoreTests : IDisposable
     {
         if (File.Exists(_tempFile)) File.Delete(_tempFile);
     }
+
+    [Fact]
+    public async Task SaveFailure_LeavesPreviousLinkIntact()
+    {
+        var store = new JsonProjectStore(_tempFile);
+        await store.SaveAsync([new ManagedProject { Name = "Existing", WindowsPath = @"C:\existing" }]);
+        var before = await File.ReadAllBytesAsync(_tempFile);
+        static IEnumerable<ManagedProject> Broken()
+        {
+            yield return new ManagedProject { Name = "Unfinished" };
+            throw new IOException("simulated enumeration failure");
+        }
+        await Assert.ThrowsAsync<IOException>(() => store.SaveAsync(Broken()));
+        Assert.Equal(before, await File.ReadAllBytesAsync(_tempFile));
+        Assert.Equal("Existing", Assert.Single(await store.LoadAsync()).Name);
+    }
 }

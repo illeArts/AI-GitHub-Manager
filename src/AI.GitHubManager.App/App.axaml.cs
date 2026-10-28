@@ -74,11 +74,25 @@ public partial class App : Application
             Menu = new NativeMenu { helpItem, gitHubItem, releaseNotesItem }
         };
 
-        NativeMenu.SetMenu(owner, new NativeMenu { helpMenu });
+        var vm = (MainWindowViewModel)owner.DataContext!;
+        var refresh = new NativeMenuItem(LocalizedStrings.Import("Refresh")) { Command = vm.ImportGitHubReposCommand };
+        var import = new NativeMenuItem(LocalizedStrings.Import("Import")) { Command = vm.ImportProjectCommand };
+        var save = new NativeMenuItem(LocalizedStrings.Import("Save")) { Command = vm.SaveProjectCommand };
+        var diagnostics = new NativeMenuItem(LocalizedStrings.Import("Diagnostics")) { Command = vm.ExportDiagnosticsCommand };
+        var projectMenu = new NativeMenuItem(LocalizedStrings.Import("Project"))
+            { Menu = new NativeMenu { refresh, import, save, diagnostics } };
+        var actions = new NativeMenuItem(LocalizedStrings.Import("Actions")) { Menu = new NativeMenu { projectMenu } };
+        NativeMenu.SetMenu(owner, new NativeMenu { actions, helpMenu });
 
         L.Changed += () =>
         {
             helpMenu.Header = L.T("Hilfe", "Help");
+            actions.Header = LocalizedStrings.Import("Actions");
+            projectMenu.Header = LocalizedStrings.Import("Project");
+            refresh.Header = LocalizedStrings.Import("Refresh");
+            import.Header = LocalizedStrings.Import("Import");
+            save.Header = LocalizedStrings.Import("Save");
+            diagnostics.Header = LocalizedStrings.Import("Diagnostics");
             helpItem.Header = L.T("Hilfe öffnen", "Open Help");
             gitHubItem.Header = L.T("GitHub-Projekt öffnen", "Open GitHub project");
             releaseNotesItem.Header = L.T("Release Notes öffnen", "Open release notes");

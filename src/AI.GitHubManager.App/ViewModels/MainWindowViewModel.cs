@@ -31,7 +31,13 @@ public sealed class MainWindowViewModel : ViewModelBase
     private readonly UpdateCheckService _updateCheck = new();
     private readonly SafePullService _safePull;
     private readonly RemoteDetectionService _remoteDetection;
-    private readonly JsonProjectStore _store = new();
+    private readonly JsonProjectStore _store;
+    private readonly ProjectImportService _import;
+    private readonly GitService _importedGit;
+    private readonly SafePullService _importedSafePull;
+    private GitService ProjectGit => string.IsNullOrEmpty(SelectedProject?.GitHubRepositoryId) ? _git : _importedGit;
+    private SafePullService ProjectSafePull => string.IsNullOrEmpty(SelectedProject?.GitHubRepositoryId) ? _safePull : _importedSafePull;
+    private CancellationTokenSource? _importCancellation;
     private readonly AppSettingsService _settings = AppSettingsService.Load();
 
     private ManagedProject? _selectedProject;
@@ -57,6 +63,9 @@ public sealed class MainWindowViewModel : ViewModelBase
 
     public LocalizedStrings Strings => LocalizedStrings.Instance;
     public Func<Task<string?>>? FolderPickerFunc { get; set; }
+    public Func<string, string, Task<string?>>? ImportTargetFunc { get; set; }
+    public Func<ImportInspection, Task<ImportChoice>>? ImportChoiceFunc { get; set; }
+    public Func<string, Task>? ImportErrorFunc { get; set; }
 
     public MainWindowViewModel() : this(gitService: null) { }
 
@@ -88,7 +97,7 @@ public sealed class MainWindowViewModel : ViewModelBase
     /// and single-arg constructors keep passing <c>null</c> and get the real, production
     /// <see cref="JsonProjectStore"/>, so end-user/production behaviour is unchanged.
     /// </summary>
-    internal MainWindowViewModel(GitService? gitService, JsonProjectStore? projectStore)
+    internal MainWindowViewModel(GitService? gitService, JsonProjectStore? projectStore, ProjectImportService? importService = null, bool initialize = true)
     {
         _git             = gitService ?? new GitService(_runner);
         _gh              = new GitHubCliService(_runner);
@@ -99,7 +108,11 @@ public sealed class MainWindowViewModel : ViewModelBase
         _installerBuild  = new InstallerBuildService(_runner);
         _safePull        = new SafePullService(_runner);
         _remoteDetection = new RemoteDetectionService(_git);
-        _store           = projectStore ?? _store;
+        _store           = projectStore ?? new JsonProjectStore();
+        _import          = importService ?? new ProjectImportService(new ProjectImportCommands(_runner));
+        var authenticatedRunner = new CommandRunner(useGitHubCliCredentials: true);
+        _importedGit = new GitService(authenticatedRunner);
+        _importedSafePull = new SafePullService(authenticatedRunner);
 
         Projects = new ObservableCollection<ManagedProject>();
 
@@ -117,6 +130,10 @@ public sealed class MainWindowViewModel : ViewModelBase
         var addProject       = new RelayCommand(AddProjectAsync,             () => !IsBusy);
         var removeProject    = new RelayCommand(RemoveProjectAsync,          () => SelectedProject != null && !IsBusy);
         var importGitHub     = new RelayCommand(ImportGitHubReposAsync,      () => !IsBusy);
+        var importProject    = new RelayCommand(ImportProjectAsync, () => !IsBusy && SelectedProject is not null);
+        var cancelImport     = new RelayCommand(() => { _importCancellation?.Cancel(); return Task.CompletedTask; }, () => IsImporting);
+        ImportProjectCommand = importProject;
+        CancelImportCommand = cancelImport;
         var openUpdate       = new RelayCommand(() => { OpenUpdateDownload(); return Task.CompletedTask; }, () => !string.IsNullOrEmpty(_updateDownloadUrl));
         var checkUpdateNow   = new RelayCommand(CheckForUpdateAsync,         () => !IsBusy);
         var repairToken      = new RelayCommand(RepairEnvironmentTokenAsync, () => !IsBusy);
@@ -177,7 +194,7 @@ public sealed class MainWindowViewModel : ViewModelBase
             pickFolder, addProject, removeProject, importGitHub,
             openUpdate, checkUpdateNow, repairToken, sanitizeRemote, exportDiagnostics,
             buildTestPush, createInstaller, installInnoSetup, removeOrphanedGitLock,
-            executeSelectedOperation
+            executeSelectedOperation, importProject, cancelImport
         };
 
         // openOnGitHub/copyGitHubLink/setGitHubLink/redetectRemote/removeProjectFromManager
@@ -196,8 +213,11 @@ public sealed class MainWindowViewModel : ViewModelBase
         L.Changed += RaiseSelectedOperationPropertiesChanged;
 
         RefreshInnoSetupAvailability();
-        _ = LoadProjectsAsync();
-        _ = RunStartupUpdateCheckAsync();
+        if (initialize)
+        {
+            _ = LoadProjectsAsync();
+            _ = RunStartupUpdateCheckAsync();
+        }
     }
 
     // ── Public properties ────────────────────────────────────────────────────
@@ -218,6 +238,9 @@ public sealed class MainWindowViewModel : ViewModelBase
     public ICommand AddProjectCommand           { get; }
     public ICommand RemoveProjectCommand        { get; }
     public ICommand ImportGitHubReposCommand    { get; }
+    public ICommand ImportProjectCommand        { get; }
+    public ICommand CancelImportCommand         { get; }
+    public bool IsImporting => _importCancellation is not null;
     public ICommand OpenUpdateCommand           { get; }
     public ICommand CheckForUpdateCommand       { get; }
     public ICommand RepairEnvironmentTokenCommand { get; }
@@ -579,7 +602,7 @@ public sealed class MainWindowViewModel : ViewModelBase
 
             var result = operation.Id switch
             {
-                "force-push"   => await _git.ForcePushWithLeaseAsync(LocalPath),
+                "force-push"   => await ProjectGit.ForcePushWithLeaseAsync(LocalPath),
                 "clean"        => await _git.CleanAsync(LocalPath),
                 "reset"        => await _git.ResetAsync(LocalPath, confirmation.TargetRef ?? string.Empty),
                 "hard-reset"   => await _git.HardResetAsync(LocalPath, confirmation.TargetRef ?? string.Empty),
@@ -633,7 +656,7 @@ public sealed class MainWindowViewModel : ViewModelBase
             {
                 // Legacy path retained only for completeness; the default and
                 // recommended path is the safe pull below.
-                var legacyResult = await _git.PullAsync(LocalPath, SelectedProject?.DefaultBranch, SelectedProject?.RemoteUrl);
+                var legacyResult = await ProjectGit.PullAsync(LocalPath, SelectedProject?.DefaultBranch, SelectedProject?.RemoteUrl);
                 Log = legacyResult.Success
                     ? legacyResult.CombinedOutput
                     : EnrichWithErrorHint(legacyResult.CombinedOutput);
@@ -641,7 +664,7 @@ public sealed class MainWindowViewModel : ViewModelBase
                 return;
             }
 
-            var result = await _safePull.PullAsync(LocalPath, warnOnlyOnLocalChanges: false);
+            var result = await ProjectSafePull.PullAsync(LocalPath, warnOnlyOnLocalChanges: false);
             Log = FormatSafePullResult(result);
             RefreshGitLockAvailability();
         });
@@ -727,7 +750,7 @@ public sealed class MainWindowViewModel : ViewModelBase
     {
         await Busy(async () =>
         {
-            var result = await _git.CommitAndPushAsync(LocalPath, CommitMessage);
+            var result = await ProjectGit.CommitAndPushAsync(LocalPath, CommitMessage);
             Log = result.Success
                 ? result.CombinedOutput
                 : EnrichWithErrorHint(result.CombinedOutput);
@@ -948,7 +971,7 @@ public sealed class MainWindowViewModel : ViewModelBase
 
             sb.AppendLine();
             sb.AppendLine(L.T("Schritt 3/3: Commit + Push …", "Step 3/3: Commit + Push …"));
-            var push = await _git.CommitAndPushAsync(LocalPath, CommitMessage);
+            var push = await ProjectGit.CommitAndPushAsync(LocalPath, CommitMessage);
             sb.AppendLine(push.Success ? push.CombinedOutput.Trim() : EnrichWithErrorHint(push.CombinedOutput));
             sb.AppendLine();
             sb.AppendLine(push.Success
@@ -1213,8 +1236,7 @@ public sealed class MainWindowViewModel : ViewModelBase
             var repos = await _gh.ListRepositoriesAsync();
             if (repos.Count == 0)
             {
-                Log = L.T("Keine Repositories gefunden. Bitte erst GitHub Login ausführen.",
-                          "No repositories found. Please run GitHub Login first.");
+                Log = LocalizedStrings.Import("NoRepositories");
                 return;
             }
 
@@ -1245,9 +1267,62 @@ public sealed class MainWindowViewModel : ViewModelBase
             }
 
             await _store.SaveAsync(Projects);
-            Log = added > 0
-                ? L.T($"{added} Repositories von GitHub importiert.", $"{added} repositories imported from GitHub.")
-                : L.T("Alle Repositories bereits vorhanden.", "All repositories already present.");
+            Log = string.Format(LocalizedStrings.Import("Refreshed"), added);
+        });
+    }
+
+    internal async Task ImportProjectAsync()
+    {
+        if (IsBusy || SelectedProject is not { } project || ImportTargetFunc is null || ImportChoiceFunc is null) return;
+        await Busy(async () =>
+        {
+            // Capture the selected project and confirmed path; UI selection may change during async work.
+            var target = await ImportTargetFunc(project.RemoteUrl, LocalPath);
+            if (string.IsNullOrWhiteSpace(target)) return;
+            using var cancellation = new CancellationTokenSource();
+            _importCancellation = cancellation;
+            OnPropertyChanged(nameof(IsImporting));
+            foreach (var command in _allCommands) command.RaiseCanExecuteChanged();
+            try
+            {
+                var result = await _import.ImportAsync(project.RemoteUrl, target, ImportChoiceFunc,
+                    new Progress<string>(key => { if (_importCancellation == cancellation) Log = LocalizedStrings.Import(key); }), cancellation.Token);
+                if (result is null) { Log = LocalizedStrings.Import("Cancelled"); return; }
+                var old = (project.WindowsPath, project.MacPath, project.LinuxPath, project.RemoteUrl, project.GitHubRepositoryId, project.UpdatedAt);
+                var oldIdentity = (project.Owner, project.RepositoryOwner, project.RepositoryName, project.RepositoryWebUrl, project.RemoteSource);
+                var identity = RemoteUrlNormalizer.Parse(result.RemoteUrl)!;
+                if (OperatingSystem.IsWindows()) project.WindowsPath = result.Path;
+                else if (OperatingSystem.IsMacOS()) project.MacPath = result.Path;
+                else project.LinuxPath = result.Path;
+                project.RemoteUrl = result.RemoteUrl;
+                project.GitHubRepositoryId = result.RepositoryId;
+                project.Owner = project.RepositoryOwner = identity.Owner;
+                project.RepositoryName = identity.Repository;
+                project.RepositoryWebUrl = identity.WebUrl;
+                project.RemoteSource = RemoteSource.Imported;
+                project.UpdatedAt = DateTimeOffset.UtcNow;
+                try { await _store.SaveAsync(Projects); }
+                catch
+                {
+                    (project.WindowsPath, project.MacPath, project.LinuxPath, project.RemoteUrl, project.GitHubRepositoryId, project.UpdatedAt) = old;
+                    (project.Owner, project.RepositoryOwner, project.RepositoryName, project.RepositoryWebUrl, project.RemoteSource) = oldIdentity;
+                    throw new ProjectImportException(ImportError.Persistence);
+                }
+                if (SelectedProject == project) LocalPath = result.Path;
+                Log = string.Format(LocalizedStrings.Import("Success"), result.Path);
+            }
+            catch (OperationCanceledException) { Log = LocalizedStrings.Import("Cancelled"); }
+            catch (ProjectImportException ex)
+            {
+                Log = LocalizedStrings.Import(ex.Error.ToString()) + "\n\n" + LocalizedStrings.Import("FailureHint");
+                if (ImportErrorFunc is not null) await ImportErrorFunc(Log);
+            }
+            finally
+            {
+                _importCancellation = null;
+                OnPropertyChanged(nameof(IsImporting));
+                foreach (var command in _allCommands) command.RaiseCanExecuteChanged();
+            }
         });
     }
 

@@ -68,7 +68,25 @@ Siehe auch [SECURITY.md](SECURITY.md) und [PRIVACY.md](PRIVACY.md).
 - vorsorglicher „Inno Setup installieren"-Button: erscheint unter Windows nur, solange Inno Setup 6
   nicht gefunden wurde, und verschwindet automatisch, sobald es installiert ist
 
-## Sync-Preflight
+## Projekt importieren / Import project
+
+Unter **Aktionen → Projekt** lädt **„Repository-Liste aktualisieren“ / “Refresh repository list”** ausschließlich die GitHub-Liste. **„Projekt importieren“ / “Import project”** klont das links ausgewählte Repository mit vollständiger Git-Historie in einen ausdrücklich bestätigten Zielordner. Beide Aktionen sind getrennt.
+
+1. GitHub Login ausführen und die Repository-Liste aktualisieren.
+2. Links ein Repository auswählen; „Projekt importieren“ öffnen.
+3. Den absoluten Zielpfad eingeben oder einen Ordner wählen und Repository/Ziel bestätigen. Das Repository landet genau dort, ohne zusätzlichen Unterordner.
+4. Bei einem passenden vorhandenen Repository **nur verknüpfen** oder **sicher aktualisieren** wählen. Aktualisierung erlaubt ausschließlich Fast-Forward bei sauberem Arbeitsbaum, vorhandenem Upstream und ohne Git-Sperre oder unterbrochenen Vorgang. Auch ignorierte Dateien blockieren vorsichtshalber das Update. Fremde/belegte Ziele sowie Symlinks, Junctions und verschachtelte Repositories werden blockiert.
+5. Nach Erfolg ist die lokale Zuordnung automatisch und atomar gespeichert. Status, Pull, Commit und Push verwenden diesen Ordner; auch der erste Commit eines zuvor leeren GitHub-Repositories kann hochgeladen werden.
+
+Private Repositories nutzen die vorhandene `gh`-Anmeldung. Ein prozessbezogener Credential Helper ruft `gh auth git-credential` auf; es werden keine zusätzlichen Tokens gespeichert und keine globalen Git-Einstellungen geändert. Bei importierten/verknüpften Projekten werden SSH-GitHub-Remotes für Netzwerkoperationen prozessbezogen über HTTPS angesprochen; die gespeicherte Remote-Adresse bleibt erhalten.
+
+Der Ablauf ist asynchron und abbrechbar. Es gibt keine automatischen Resets, Force-Pulls oder destruktive Fehlerbereinigung. Fehlgeschlagene/abgebrochene Importe können einen temporären Ordner `.ai-github-import-*` neben dem Ziel hinterlassen. Diesen zunächst prüfen; beim nächsten Versuch einen leeren oder fehlenden Zielordner wählen. Bei einem Speicherfehler bleiben importierte Dateien erhalten und die vorherige Zuordnung aktiv; anschließend erneut verknüpfen.
+
+English: **Refresh repository list** refreshes metadata only. **Import project** clones into the exact confirmed destination, or explicitly links/fast-forwards a matching working copy. Occupied, foreign and unsafe destinations are refused. Existing files are preserved; failures do not save a new link. Temporary import folders may be retained for inspection. Existing GitHub CLI authentication is used without storing tokens or changing global Git configuration.
+
+Technik und Grenzen: [Importarchitektur](docs/PROJECT_IMPORT.md), [Atlas-Baustein v1](docs/atlas/GITHUB_PROJECT_IMPORT_v1.md), [Prüfnachweis](docs/testing/PROJECT_IMPORT.md).
+
+## Sync-Preflight (Prüfungen)
 
 Die Funktion **„Umgebung prüfen“** kontrolliert bei ausgewähltem Projekt:
 

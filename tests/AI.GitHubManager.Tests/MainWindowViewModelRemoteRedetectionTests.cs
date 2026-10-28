@@ -27,7 +27,7 @@ public sealed class MainWindowViewModelRemoteRedetectionTests : IDisposable
     /// MainWindowViewModelAdvancedOperationTests.NewViewModel.
     /// </summary>
     private MainWindowViewModel NewViewModel() =>
-        new(new GitService(_runner), new JsonProjectStore(_storeFile));
+        new(new GitService(_runner), new JsonProjectStore(_storeFile), initialize: false);
 
     [Fact]
     public async Task RedetectRemote_UnchangedRemote_SavesWithoutAskingForConfirmation()

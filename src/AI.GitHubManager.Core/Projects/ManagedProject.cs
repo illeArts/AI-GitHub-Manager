@@ -8,6 +8,7 @@ public sealed class ManagedProject
     public string Name { get; set; } = string.Empty;
     public string Owner { get; set; } = string.Empty;
     public string RemoteUrl { get; set; } = string.Empty;
+    public string GitHubRepositoryId { get; set; } = string.Empty;
     public string DefaultBranch { get; set; } = "main";
     public string WindowsPath { get; set; } = string.Empty;
     public string MacPath { get; set; } = string.Empty;

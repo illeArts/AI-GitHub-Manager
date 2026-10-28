@@ -1,0 +1,29 @@
+name: Build and test
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '8.0.x'
+      - run: dotnet restore AI.GitHubManager.sln
+      - run: dotnet build AI.GitHubManager.sln --configuration Release --no-restore
+      - run: dotnet test AI.GitHubManager.sln --configuration Release --no-build --logger trx --results-directory TestResults
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: tests-${{ matrix.os }}
+          path: TestResults

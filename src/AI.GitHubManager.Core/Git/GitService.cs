@@ -202,7 +202,10 @@ public sealed class GitService
             commitOutput = "Keine Änderungen. Commit übersprungen, ungesendete Commits werden gepusht.";
         }
 
-        var push = await _runner.RunAsync("git", ["push"], repositoryPath, cancellationToken);
+        var upstreamForPush = await _runner.RunAsync("git", ["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"], repositoryPath, cancellationToken);
+        var branchForPush = await GetCurrentBranchOrDefaultAsync(repositoryPath, null, cancellationToken);
+        var push = await _runner.RunAsync("git", upstreamForPush.Success || string.IsNullOrWhiteSpace(branchForPush)
+            ? ["push"] : ["push", "--set-upstream", "origin", branchForPush], repositoryPath, cancellationToken);
         var combined = commitOutput + "\n\n" + push.CombinedOutput.Trim();
         return new CommandResult(push.ExitCode, combined, string.Empty, "git", "commit+push");
     }

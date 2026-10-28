@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using AI.GitHubManager.Core.Projects;
 
 namespace AI.GitHubManager.App.Services;
 
@@ -29,7 +30,12 @@ public sealed class LocalizedStrings : INotifyPropertyChanged
     public string ActionsHeader     => L.T("Aktionen",              "Actions");
     public string AddProject        => L.T("+ Hinzufügen",          "+ Add");
     public string RemoveProject     => L.T("− Entfernen",           "− Remove");
-    public string ImportGitHub      => L.T("Von GitHub importieren","Import from GitHub");
+    public static string Import(string key) => ImportText.Get(key, L.IsEnglish ? "en" : "de");
+    public string ImportGitHub      => Import("Refresh");
+    public string ImportProject     => Import("Import");
+    public string CancelImport      => Import("Cancel");
+    public string ActionsMenu       => Import("Actions");
+    public string ProjectMenu       => Import("Project");
     public string InstallCli        => L.T("GitHub CLI installieren","Install GitHub CLI");
     public string GitHubLogin       => L.T("GitHub Login",          "GitHub Login");
     public string CheckEnv          => L.T("Umgebung prüfen",       "Check Environment");
