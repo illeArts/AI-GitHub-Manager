@@ -51,6 +51,18 @@ public sealed class ProjectImportService(IProjectImportCommands commands)
         if (string.IsNullOrWhiteSpace(path) || !Path.IsPathFullyQualified(path))
             throw new ProjectImportException(ImportError.InvalidPath);
         var full = Path.TrimEndingDirectorySeparator(Path.GetFullPath(path));
+        if (OperatingSystem.IsMacOS())
+        {
+            // macOS ships these root-owned system aliases. Normalize only their exact
+            // expected destinations; user-created links anywhere below remain forbidden.
+            foreach (var alias in new[] { "/var", "/tmp" })
+            {
+                var physical = "/private" + alias;
+                if ((full == alias || full.StartsWith(alias + "/", StringComparison.Ordinal)) &&
+                    new DirectoryInfo(alias).LinkTarget == physical)
+                    full = physical + full[alias.Length..];
+            }
+        }
         if (Path.GetDirectoryName(full) is null || File.Exists(full))
             throw new ProjectImportException(ImportError.InvalidPath);
         for (var current = new DirectoryInfo(full); current is not null; current = current.Parent)

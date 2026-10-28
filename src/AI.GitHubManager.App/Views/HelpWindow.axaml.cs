@@ -97,9 +97,10 @@ public partial class HelpWindow : Window
             "Can be switched to \"warn and abort only\" in Settings.");
         CmdCommit.Text = L.T("Staged alle Änderungen, commitet mit deiner Nachricht und pusht zum Remote.",
                              "Stages all changes, commits with your message, and pushes to remote.");
-        CmdImportLabel.Text = L.T("Von GitHub importieren", "Import from GitHub");
-        CmdImport.Text = L.T("Importiert alle Repositories deines GitHub-Accounts (gh repo list).",
-                             "Imports all repositories from your GitHub account (gh repo list).");
+        CmdImportLabel.Text = LocalizedStrings.Import("Refresh");
+        CmdImport.Text = LocalizedStrings.Import("RefreshHelp");
+        CmdProjectImportLabel.Text = LocalizedStrings.Import("Import");
+        CmdProjectImport.Text = LocalizedStrings.Import("ImportHelp");
         CmdEnvLabel.Text = L.T("Umgebung prüfen", "Check Environment");
         CmdEnv.Text    = L.T("Prüft git-Installation, GitHub CLI und Authentifizierungsstatus.",
                              "Verifies git installation, GitHub CLI, and authentication status.");

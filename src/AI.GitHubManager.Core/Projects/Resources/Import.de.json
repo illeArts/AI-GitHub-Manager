@@ -3,6 +3,8 @@
   "Project": "Projekt",
   "Import": "Projekt importieren",
   "Refresh": "Repository-Liste aktualisieren",
+  "RefreshHelp": "Aktualisiert ausschließlich die Repository-Liste über gh repo list. Es werden keine Projektdateien geklont.",
+  "ImportHelp": "Klont das ausgewählte Repository in den ausdrücklich bestätigten lokalen Ordner oder verknüpft ein passendes vorhandenes Repository. Aktualisierung nur nach Zustimmung und ausschließlich per sicherem Fast-Forward. Belegte/fremde Ziele werden blockiert; vorhandene Dateien bleiben erhalten. Nach Erfolg wird die lokale Zuordnung gespeichert.",
   "Refreshed": "Repository-Liste aktualisiert. Neue Einträge: {0}.",
   "NoRepositories": "Keine Repositories gefunden. Bitte GitHub Login und Zugriffsrechte prüfen.",
   "Save": "Projekt speichern",

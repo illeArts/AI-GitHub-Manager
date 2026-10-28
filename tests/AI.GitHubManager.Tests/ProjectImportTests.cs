@@ -21,6 +21,7 @@ public sealed class ProjectImportTests : IDisposable
 
     public ProjectImportTests()
     {
+        _root = ProjectImportService.ValidatePath(_root);
         Directory.CreateDirectory(_root);
         _commands = new Commands(_runner, Origin);
         _service = new ProjectImportService(_commands);

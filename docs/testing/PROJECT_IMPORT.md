@@ -42,5 +42,6 @@ Der Smoke-Test klont in einen eindeutigen Testordner unter dem System-Temp-Verze
 - Aktuellen main-Stand samt Aktionen-Seitenleiste, Diagnoseexport, Git-Sperren und macOS-Menüfix übernommen. Keine ältere UI über neuere Funktionen gelegt.
 - Erster Push eines leeren Repository-Clones setzt den Upstream.
 - Lange neue Listenbeschriftung umgebrochen, Pfadfeld für Accessibility benannt, Escape-Abbruch ergänzt.
+- macOS-CI fand die standardmäßige Systemalias-Kette `/var → /private/var` im Temp-Verzeichnis. Nur diese feste Kette sowie `/tmp → /private/tmp` werden vor den unverändert strengen Nutzer-Symlinkprüfungen kanonisch aufgelöst.
 
 Bekannte Grenzen stehen im [Sicherheitsvertrag](../PROJECT_IMPORT.md). Ein PASS der Testsuite ist keine manuelle Produktabnahme auf allen Plattformen.

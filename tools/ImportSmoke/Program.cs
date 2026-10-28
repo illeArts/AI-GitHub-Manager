@@ -11,7 +11,7 @@ if (args.Length != 1)
     return 2;
 }
 var remote = ProjectImportService.CanonicalRemote(args[0]);
-var testParent = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "ai-github-manager-live-import"));
+var testParent = ProjectImportService.ValidatePath(Path.Combine(Path.GetTempPath(), "ai-github-manager-live-import"));
 var testRoot = Path.Combine(testParent, Guid.NewGuid().ToString("N"));
 Directory.CreateDirectory(testRoot);
 var target = Path.Combine(testRoot, "private-project");

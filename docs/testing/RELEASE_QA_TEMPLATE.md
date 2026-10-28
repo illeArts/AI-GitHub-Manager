@@ -304,7 +304,7 @@ Kurzer Rundgang durch die Kernfunktionen, um sicherzustellen, dass keine der
 
 | # | Aktion | Erwartetes Ergebnis | Dauer |
 |---|---|---|---|
-| 5.1 | **Clone** — Repository per „Von GitHub importieren" oder manuellem `git clone` + „+ Hinzufügen" einbinden | Projekt erscheint korrekt in der Liste, lokaler Pfad korrekt zugeordnet | ~3 Min. |
+| 5.1 | **Clone** — „Repository-Liste aktualisieren“, Repository wählen und „Projekt importieren“ ausführen; alternativ manuelles `git clone` + „+ Hinzufügen“ | Projekt erscheint korrekt in der Liste, lokaler Pfad korrekt zugeordnet | ~3 Min. |
 | 5.2 | **Commit** — Datei ändern, „Commit + Push" klicken | Änderung wird committet und gepusht, Log zeigt Erfolg | ~2 Min. |
 | 5.3 | **Push** — erneuter Push ohne Änderungen | Log meldet sinngemäß „Keine Änderungen und keine ungesendeten Commits", kein Fehler | ~1 Min. |
 | 5.4 | **Branch wechseln** — lokal per Terminal, danach in der App „Umgebung prüfen"/„Status" | App zeigt den neuen Branch korrekt an, keine falschen Zustände | ~2 Min. |

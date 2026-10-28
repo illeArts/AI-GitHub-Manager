@@ -3,6 +3,8 @@
   "Project": "Project",
   "Import": "Import project",
   "Refresh": "Refresh repository list",
+  "RefreshHelp": "Refreshes repository metadata through gh repo list only. No project files are cloned.",
+  "ImportHelp": "Clones the selected repository into the explicitly confirmed local folder or links a matching existing repository. Updates require consent and a safe fast-forward. Occupied/foreign destinations are refused; existing files are preserved. The local link is saved on success.",
   "Refreshed": "Repository list refreshed. New entries: {0}.",
   "NoRepositories": "No repositories found. Check GitHub Login and access permissions.",
   "Save": "Save project",
