@@ -41,6 +41,15 @@ public sealed class JsonProjectStore
             Directory.CreateDirectory(directory);
 
         var json = JsonSerializer.Serialize(projects, _options);
-        await File.WriteAllTextAsync(_filePath, json);
+        var temporary = _filePath + "." + Guid.NewGuid().ToString("N") + ".tmp";
+        try
+        {
+            await File.WriteAllTextAsync(temporary, json);
+            File.Move(temporary, _filePath, overwrite: true);
+        }
+        finally
+        {
+            if (File.Exists(temporary)) File.Delete(temporary);
+        }
     }
 }

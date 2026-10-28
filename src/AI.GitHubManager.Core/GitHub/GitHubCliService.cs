@@ -8,7 +8,7 @@ public sealed class GitHubCliService
     private readonly CommandRunner _runner;
 
     // Resolved once at startup so all calls use the same path
-    private static readonly string GhExe = ResolveGhExe();
+    public static readonly string GhExe = ResolveGhExe();
 
     public GitHubCliService(CommandRunner runner) => _runner = runner;
 

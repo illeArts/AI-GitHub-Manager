@@ -30,6 +30,16 @@ public partial class MainWindow : Window
     {
         if (DataContext is MainWindowViewModel vm)
         {
+            vm.ImportTargetFunc = (remote, initial) => ImportDialogs.Target(this, remote, initial);
+            vm.ImportChoiceFunc = state => ImportDialogs.Existing(this, state);
+            vm.ImportErrorFunc = async message =>
+            {
+                if (await ImportDialogs.Error(this, message))
+                {
+                    var path = await ImportDialogs.Target(this, vm.SelectedProject?.RemoteUrl ?? "", "");
+                    if (path is not null) vm.LocalPath = path;
+                }
+            };
             vm.FolderPickerFunc = async () =>
             {
                 var result = await StorageProvider.OpenFolderPickerAsync(

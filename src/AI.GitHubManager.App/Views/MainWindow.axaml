@@ -253,6 +253,11 @@
                          Margin="0,0,0,6" />
               <Button Content="{Binding Strings.ImportGitHub}"
                       Command="{Binding ImportGitHubReposCommand}"    Margin="0,0,0,8" HorizontalAlignment="Stretch" />
+              <Button Content="{Binding Strings.ImportProject}" Command="{Binding ImportProjectCommand}"
+                      AutomationProperties.Name="{Binding Strings.ImportProject}" Margin="0,0,0,8" HorizontalAlignment="Stretch" />
+              <ProgressBar IsVisible="{Binding IsImporting}" IsIndeterminate="True" Height="4" Margin="0,0,0,8" />
+              <Button Content="{Binding Strings.CancelImport}" Command="{Binding CancelImportCommand}" IsVisible="{Binding IsImporting}"
+                      Margin="0,0,0,8" HorizontalAlignment="Stretch" />
               <Button Content="{Binding Strings.SaveProject}"
                       Command="{Binding SaveProjectCommand}"          Margin="0,0,0,8" HorizontalAlignment="Stretch" />
               <Button Content="{Binding Strings.ExportDiagnostics}"

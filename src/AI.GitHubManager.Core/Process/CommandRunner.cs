@@ -74,7 +74,16 @@ public sealed class CommandRunner
 
             var stdoutTask = process.StandardOutput.ReadToEndAsync(cancellationToken);
             var stderrTask = process.StandardError.ReadToEndAsync(cancellationToken);
-            await process.WaitForExitAsync(cancellationToken);
+            try { await process.WaitForExitAsync(cancellationToken); }
+            catch (OperationCanceledException)
+            {
+                try { process.Kill(entireProcessTree: true); }
+                catch (InvalidOperationException) { }
+                await process.WaitForExitAsync(CancellationToken.None);
+                try { await Task.WhenAll(stdoutTask, stderrTask); }
+                catch (OperationCanceledException) { }
+                throw;
+            }
 
             return new CommandResult(process.ExitCode, await stdoutTask, await stderrTask, fileName, argumentText);
         }
@@ -90,6 +99,17 @@ public sealed class CommandRunner
                 $"Programm nicht gefunden: {fileName}\n{ex.Message}",
                 fileName, argumentText);
         }
+    }
+
+    public Task<CommandResult> RunIsolatedGitAsync(IEnumerable<string> arguments, string directory, CancellationToken token = default)
+    {
+        var overrides = System.Environment.GetEnvironmentVariables().Keys.Cast<string>()
+            .Where(k => k.StartsWith("GIT_", StringComparison.OrdinalIgnoreCase))
+            .ToDictionary(k => k, _ => (string?)null);
+        overrides["GIT_TERMINAL_PROMPT"] = "0";
+        overrides["GIT_OPTIONAL_LOCKS"] = "0";
+        overrides["GCM_INTERACTIVE"] = "never";
+        return RunAsync("git", arguments, directory, overrides, token);
     }
 
     public Task<CommandResult> RunDetachedAsync(

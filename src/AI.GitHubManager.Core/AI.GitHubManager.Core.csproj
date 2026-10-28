@@ -18,4 +18,7 @@
          fallback detector is used instead, so this package is simply unused there. -->
     <PackageReference Include="System.Management" Version="8.0.0" />
   </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Projects/Resources/Import.*.json" WithCulture="false" />
+  </ItemGroup>
 </Project>
