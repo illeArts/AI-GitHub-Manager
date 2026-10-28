@@ -15,6 +15,7 @@ internal static class ImportDialogs
     {
         var dialog = CreateWindow();
         var path = new TextBox { Text = initial, Watermark = Text("Pick") };
+        Avalonia.Automation.AutomationProperties.SetName(path, Text("Pick"));
         var browse = new Button { Content = Text("ChooseOther") };
         browse.Click += async (_, _) =>
         {
@@ -29,7 +30,7 @@ internal static class ImportDialogs
             var confirmed = await Choice(dialog, string.Format(Text("Confirm"), remote, path.Text), ["Continue", "Cancel"]);
             if (confirmed == "Continue") dialog.Close(path.Text);
         };
-        var cancel = new Button { Content = Text("Cancel") };
+        var cancel = new Button { Content = Text("Cancel"), IsCancel = true };
         cancel.Click += (_, _) => dialog.Close(null);
         dialog.Content = new StackPanel { Margin = new Thickness(20), Spacing = 12, Children =
             { new TextBlock { Text = Text("Pick"), TextWrapping = Avalonia.Media.TextWrapping.Wrap }, path, browse,
@@ -54,7 +55,7 @@ internal static class ImportDialogs
         var buttons = new WrapPanel { Orientation = Orientation.Horizontal };
         foreach (var key in options)
         {
-            var button = new Button { Content = Text(key), Margin = new Thickness(0, 0, 8, 8) };
+            var button = new Button { Content = Text(key), IsCancel = key == "Cancel", Margin = new Thickness(0, 0, 8, 8) };
             button.Click += (_, _) => dialog.Close(key);
             buttons.Children.Add(button);
         }

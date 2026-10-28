@@ -33,6 +33,10 @@ public sealed class MainWindowViewModel : ViewModelBase
     private readonly RemoteDetectionService _remoteDetection;
     private readonly JsonProjectStore _store = new();
     private readonly ProjectImportService _import;
+    private readonly GitService _importedGit;
+    private readonly SafePullService _importedSafePull;
+    private GitService ProjectGit => string.IsNullOrEmpty(SelectedProject?.GitHubRepositoryId) ? _git : _importedGit;
+    private SafePullService ProjectSafePull => string.IsNullOrEmpty(SelectedProject?.GitHubRepositoryId) ? _safePull : _importedSafePull;
     private CancellationTokenSource? _importCancellation;
     private readonly AppSettingsService _settings = AppSettingsService.Load();
 
@@ -93,7 +97,7 @@ public sealed class MainWindowViewModel : ViewModelBase
     /// and single-arg constructors keep passing <c>null</c> and get the real, production
     /// <see cref="JsonProjectStore"/>, so end-user/production behaviour is unchanged.
     /// </summary>
-    internal MainWindowViewModel(GitService? gitService, JsonProjectStore? projectStore, ProjectImportService? importService = null)
+    internal MainWindowViewModel(GitService? gitService, JsonProjectStore? projectStore, ProjectImportService? importService = null, bool initialize = true)
     {
         _git             = gitService ?? new GitService(_runner);
         _gh              = new GitHubCliService(_runner);
@@ -106,6 +110,9 @@ public sealed class MainWindowViewModel : ViewModelBase
         _remoteDetection = new RemoteDetectionService(_git);
         _store           = projectStore ?? _store;
         _import          = importService ?? new ProjectImportService(new ProjectImportCommands(_runner));
+        var authenticatedRunner = new CommandRunner(useGitHubCliCredentials: true);
+        _importedGit = new GitService(authenticatedRunner);
+        _importedSafePull = new SafePullService(authenticatedRunner);
 
         Projects = new ObservableCollection<ManagedProject>();
 
@@ -206,8 +213,11 @@ public sealed class MainWindowViewModel : ViewModelBase
         L.Changed += RaiseSelectedOperationPropertiesChanged;
 
         RefreshInnoSetupAvailability();
-        _ = LoadProjectsAsync();
-        _ = RunStartupUpdateCheckAsync();
+        if (initialize)
+        {
+            _ = LoadProjectsAsync();
+            _ = RunStartupUpdateCheckAsync();
+        }
     }
 
     // ── Public properties ────────────────────────────────────────────────────
@@ -592,7 +602,7 @@ public sealed class MainWindowViewModel : ViewModelBase
 
             var result = operation.Id switch
             {
-                "force-push"   => await _git.ForcePushWithLeaseAsync(LocalPath),
+                "force-push"   => await ProjectGit.ForcePushWithLeaseAsync(LocalPath),
                 "clean"        => await _git.CleanAsync(LocalPath),
                 "reset"        => await _git.ResetAsync(LocalPath, confirmation.TargetRef ?? string.Empty),
                 "hard-reset"   => await _git.HardResetAsync(LocalPath, confirmation.TargetRef ?? string.Empty),
@@ -646,7 +656,7 @@ public sealed class MainWindowViewModel : ViewModelBase
             {
                 // Legacy path retained only for completeness; the default and
                 // recommended path is the safe pull below.
-                var legacyResult = await _git.PullAsync(LocalPath, SelectedProject?.DefaultBranch, SelectedProject?.RemoteUrl);
+                var legacyResult = await ProjectGit.PullAsync(LocalPath, SelectedProject?.DefaultBranch, SelectedProject?.RemoteUrl);
                 Log = legacyResult.Success
                     ? legacyResult.CombinedOutput
                     : EnrichWithErrorHint(legacyResult.CombinedOutput);
@@ -654,7 +664,7 @@ public sealed class MainWindowViewModel : ViewModelBase
                 return;
             }
 
-            var result = await _safePull.PullAsync(LocalPath, warnOnlyOnLocalChanges: false);
+            var result = await ProjectSafePull.PullAsync(LocalPath, warnOnlyOnLocalChanges: false);
             Log = FormatSafePullResult(result);
             RefreshGitLockAvailability();
         });
@@ -740,7 +750,7 @@ public sealed class MainWindowViewModel : ViewModelBase
     {
         await Busy(async () =>
         {
-            var result = await _git.CommitAndPushAsync(LocalPath, CommitMessage);
+            var result = await ProjectGit.CommitAndPushAsync(LocalPath, CommitMessage);
             Log = result.Success
                 ? result.CombinedOutput
                 : EnrichWithErrorHint(result.CombinedOutput);
@@ -961,7 +971,7 @@ public sealed class MainWindowViewModel : ViewModelBase
 
             sb.AppendLine();
             sb.AppendLine(L.T("Schritt 3/3: Commit + Push …", "Step 3/3: Commit + Push …"));
-            var push = await _git.CommitAndPushAsync(LocalPath, CommitMessage);
+            var push = await ProjectGit.CommitAndPushAsync(LocalPath, CommitMessage);
             sb.AppendLine(push.Success ? push.CombinedOutput.Trim() : EnrichWithErrorHint(push.CombinedOutput));
             sb.AppendLine();
             sb.AppendLine(push.Success
@@ -1276,7 +1286,7 @@ public sealed class MainWindowViewModel : ViewModelBase
             try
             {
                 var result = await _import.ImportAsync(project.RemoteUrl, target, ImportChoiceFunc,
-                    new Progress<string>(key => Log = LocalizedStrings.Import(key)), cancellation.Token);
+                    new Progress<string>(key => { if (_importCancellation == cancellation) Log = LocalizedStrings.Import(key); }), cancellation.Token);
                 if (result is null) { Log = LocalizedStrings.Import("Cancelled"); return; }
                 var old = (project.WindowsPath, project.MacPath, project.LinuxPath, project.RemoteUrl, project.GitHubRepositoryId, project.UpdatedAt);
                 var oldIdentity = (project.Owner, project.RepositoryOwner, project.RepositoryName, project.RepositoryWebUrl, project.RemoteSource);

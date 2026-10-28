@@ -134,7 +134,6 @@ public sealed class ProjectImportService(IProjectImportCommands commands)
                 if (choice == ImportChoice.Cancel) return null;
                 inspection = await InspectAsync(remote, target, token);
                 if (!inspection.ExistingRepository) throw new ProjectImportException(ImportError.UnsafePath);
-                await ConfigureCredentials(token);
                 if (choice == ImportChoice.Update)
                 {
                     if (!inspection.CanUpdate) throw new ProjectImportException(ImportError.UnsafeUpdate);
@@ -151,7 +150,6 @@ public sealed class ProjectImportService(IProjectImportCommands commands)
             else
             {
                 progress?.Report("Cloning");
-                await ConfigureCredentials(token);
                 ValidatePath(target);
                 Directory.CreateDirectory(parent);
                 ValidatePath(target);
@@ -184,12 +182,6 @@ public sealed class ProjectImportService(IProjectImportCommands commands)
         { throw new ProjectImportException(ImportError.RemoteUnavailable); }
     }
 
-    private async Task ConfigureCredentials(CancellationToken token)
-    {
-        // Existing application login contract, also enables subsequent Pull/Commit/Push.
-        if (!(await commands.GhAsync(["auth", "setup-git", "--hostname", "github.com"], token)).Success)
-            throw new ProjectImportException(ImportError.AuthenticationRequired);
-    }
     private async Task<CommandResult> Git(string[] args, string path, CancellationToken token)
     {
         var result = await commands.GitAsync(args, path, token);

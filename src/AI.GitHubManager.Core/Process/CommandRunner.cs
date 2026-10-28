@@ -1,9 +1,10 @@
 using System.ComponentModel;
 using System.Diagnostics;
+using AI.GitHubManager.Core.GitHub;
 
 namespace AI.GitHubManager.Core.Process;
 
-public sealed class CommandRunner
+public sealed class CommandRunner(bool useGitHubCliCredentials = false)
 {
     /// <summary>
     /// Extra paths prepended to PATH on macOS.
@@ -58,7 +59,20 @@ public sealed class CommandRunner
     {
         try
         {
+            if (useGitHubCliCredentials && fileName == "git" && argumentList is not null)
+            {
+                argumentList = GitHubCredentialScope.Apply(argumentList);
+                argumentText = string.Join(" ", argumentList);
+            }
             var info = BuildStartInfo(fileName, argumentText, argumentList, workingDirectory, redirect: true);
+            if (useGitHubCliCredentials && fileName == "git")
+            {
+                foreach (var key in info.Environment.Keys.Where(k => k.StartsWith("GIT_", StringComparison.OrdinalIgnoreCase)).ToArray())
+                    info.Environment.Remove(key);
+                info.Environment["GIT_TERMINAL_PROMPT"] = "0";
+                info.Environment["GIT_OPTIONAL_LOCKS"] = "0";
+                info.Environment["GCM_INTERACTIVE"] = "never";
+            }
 
             if (environmentOverrides is not null)
             {
@@ -109,7 +123,7 @@ public sealed class CommandRunner
         overrides["GIT_TERMINAL_PROMPT"] = "0";
         overrides["GIT_OPTIONAL_LOCKS"] = "0";
         overrides["GCM_INTERACTIVE"] = "never";
-        return RunAsync("git", arguments, directory, overrides, token);
+        return RunAsync("git", GitHubCredentialScope.Apply(arguments), directory, overrides, token);
     }
 
     public Task<CommandResult> RunDetachedAsync(

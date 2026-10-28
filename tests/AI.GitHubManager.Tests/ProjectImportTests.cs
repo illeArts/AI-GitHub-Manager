@@ -1,7 +1,9 @@
 using AI.GitHubManager.Core.Git;
+using AI.GitHubManager.Core.GitHub;
 using AI.GitHubManager.Core.Process;
 using AI.GitHubManager.Core.Projects;
 using AI.GitHubManager.Data;
+using AI.GitHubManager.App.ViewModels;
 using Xunit;
 
 namespace AI.GitHubManager.Tests;
@@ -55,7 +57,7 @@ public sealed class ProjectImportTests : IDisposable
         Assert.Equal("initial", await File.ReadAllTextAsync(Path.Combine(Target, "README.md")));
         Assert.True((await new GitService(_runner).GetStatusAsync(Target)).IsRepository);
         Assert.Contains(_commands.GhCalls, a => a.SequenceEqual(new[] { "auth", "status", "--hostname", "github.com" }));
-        Assert.Contains(_commands.GhCalls, a => a.SequenceEqual(new[] { "auth", "setup-git", "--hostname", "github.com" }));
+        Assert.DoesNotContain(_commands.GhCalls, a => a.Contains("setup-git"));
         Assert.DoesNotContain(_commands.GitCalls.SelectMany(x => x), x => x.Contains("token", StringComparison.OrdinalIgnoreCase));
         var project = new ManagedProject { Owner = "example", Name = "private.project", RemoteUrl = result.RemoteUrl, GitHubRepositoryId = result.RepositoryId };
         if (OperatingSystem.IsWindows()) project.WindowsPath = result.Path;
@@ -93,6 +95,7 @@ public sealed class ProjectImportTests : IDisposable
         var readme = Path.Combine(Target, "README.md");
         await File.WriteAllTextAsync(readme, "local work");
         var snapshot = Snapshot(Target);
+        var config = await File.ReadAllBytesAsync(Path.Combine(Target, ".git", "config"));
         _commands.GitCalls.Clear();
         ImportInspection? inspected = null;
         var result = await _service.ImportAsync(Remote, Target, s => { inspected = s; return Task.FromResult(ImportChoice.Link); });
@@ -100,6 +103,7 @@ public sealed class ProjectImportTests : IDisposable
         Assert.True(inspected!.Dirty);
         Assert.False(inspected.CanUpdate);
         EqualSnapshot(snapshot, Snapshot(Target));
+        Assert.Equal(config, await File.ReadAllBytesAsync(Path.Combine(Target, ".git", "config")));
         Assert.DoesNotContain(_commands.GitCalls, a => a.Contains("fetch") || a.Contains("merge") || a.Contains("clone"));
     }
 
@@ -130,6 +134,8 @@ public sealed class ProjectImportTests : IDisposable
     [InlineData("divergent")]
     [InlineData("no-upstream")]
     [InlineData("detached")]
+    [InlineData("lock")]
+    [InlineData("interrupted")]
     public async Task Update_BlocksUnsafeStates_PreservesLocalFiles(string state)
     {
         await Init(); await Import();
@@ -148,6 +154,8 @@ public sealed class ProjectImportTests : IDisposable
         }
         if (state == "no-upstream") await Git(Target, "branch", "--unset-upstream");
         if (state == "detached") await Git(Target, "checkout", "--detach");
+        if (state == "lock") await File.WriteAllTextAsync(Path.Combine(Target, ".git", "index.lock"), "keep");
+        if (state == "interrupted") await File.WriteAllTextAsync(Path.Combine(Target, ".git", "MERGE_HEAD"), "keep");
         var files = Snapshot(Target);
         var error = await Assert.ThrowsAsync<ProjectImportException>(() => Import(ImportChoice.Update));
         Assert.Equal(ImportError.UnsafeUpdate, error.Error);
@@ -203,7 +211,6 @@ public sealed class ProjectImportTests : IDisposable
     [InlineData("remote", ImportError.RemoteUnavailable)]
     [InlineData("git", ImportError.GitUnavailable)]
     [InlineData("clone", ImportError.GitFailed)]
-    [InlineData("credentials", ImportError.AuthenticationRequired)]
     [InlineData("permission", ImportError.FileAccess)]
     public async Task PreflightAndCloneErrors_DoNotPublishTargetOrExposeSecrets(string failure, ImportError expected)
     {
@@ -303,6 +310,70 @@ public sealed class ProjectImportTests : IDisposable
     }
 
     private Task Identity(string path) => ConfigureIdentity(path);
+
+    [Fact]
+    public void Authentication_IsScopedToNetworkCommands_WithoutChangingStoredRemoteOrConfig()
+    {
+        var args = GitHubCredentialScope.Apply(["clone", "--", Remote, "target with spaces"]);
+        Assert.Contains("credential.https://github.com.helper=", args);
+        Assert.Contains(args, a => a.Contains("auth git-credential"));
+        Assert.Contains("url.https://github.com/.insteadOf=git@github.com:", args);
+        Assert.Equal(new[] { "clone", "--", Remote, "target with spaces" }, args[^4..]);
+        Assert.Equal(new[] { "status", "--porcelain" }, GitHubCredentialScope.Apply(["status", "--porcelain"]));
+        Assert.Equal(args, GitHubCredentialScope.Apply(args));
+    }
+
+    [Theory]
+    [InlineData("success")]
+    [InlineData("clone-failure")]
+    [InlineData("save-failure")]
+    [InlineData("cancel")]
+    public async Task ViewModel_PersistsOnlySuccessfulImports_AndKeepsPreviousMappingOnFailure(string scenario)
+    {
+        await Init();
+        var storePath = Path.Combine(_root, "viewmodel-projects.json");
+        var store = new JsonProjectStore(storePath);
+        var project = new ManagedProject { Owner = "old-owner", Name = "chosen", RemoteUrl = Remote, RepositoryWebUrl = "https://github.com/old/project" };
+        if (OperatingSystem.IsWindows()) project.WindowsPath = "C:\\previous";
+        else if (OperatingSystem.IsMacOS()) project.MacPath = "/previous";
+        else project.LinuxPath = "/previous";
+        var previous = project.GetPathForCurrentPlatform();
+        await store.SaveAsync([project]);
+        if (scenario == "save-failure")
+        {
+            File.Delete(storePath);
+            Directory.CreateDirectory(storePath); // deterministic atomic-publication failure on every platform
+        }
+        var vm = new MainWindowViewModel(null, store, _service, initialize: false);
+        vm.Projects.Add(project);
+        vm.SelectedProject = project;
+        vm.ImportTargetFunc = (_, _) => Task.FromResult<string?>(scenario == "cancel" ? null : Target);
+        vm.ImportChoiceFunc = _ => Task.FromResult(ImportChoice.Link);
+        if (scenario == "clone-failure") _commands.Failure = "clone";
+        await vm.ImportProjectAsync();
+        Assert.False(vm.IsBusy);
+        Assert.False(vm.IsImporting);
+        if (scenario == "success")
+        {
+            var loaded = Assert.Single(await store.LoadAsync());
+            Assert.Equal(Target, vm.LocalPath);
+            Assert.Equal(Target, loaded.GetPathForCurrentPlatform());
+            Assert.Equal("example", loaded.RepositoryOwner);
+            Assert.Equal("private.project", loaded.RepositoryName);
+            Assert.Equal("https://github.com/example/private.project", loaded.RepositoryWebUrl);
+            Assert.Equal("R_private", loaded.GitHubRepositoryId);
+        }
+        else
+        {
+            Assert.Equal(previous, project.GetPathForCurrentPlatform());
+            Assert.Equal(previous, vm.LocalPath);
+            Assert.Equal("old-owner", project.Owner);
+            Assert.Equal("https://github.com/old/project", project.RepositoryWebUrl);
+            Assert.Empty(project.GitHubRepositoryId);
+            if (scenario == "save-failure") Assert.True(File.Exists(Path.Combine(Target, "README.md")));
+            else Assert.Equal(previous, Assert.Single(await store.LoadAsync()).GetPathForCurrentPlatform());
+        }
+    }
     private async Task ConfigureIdentity(string path)
     {
         await Git(path, "config", "user.email", "test@example.invalid");
@@ -342,7 +413,7 @@ public sealed class ProjectImportTests : IDisposable
             token.ThrowIfCancellationRequested();
             GhCalls.Add(args);
             if ((Failure == "auth" && args.Contains("status")) || (Failure == "remote" && args.Contains("view")) ||
-                (Failure == "credentials" && args.Contains("setup-git"))) return Task.FromResult(Fail());
+                (Failure == "credentials" && args.Contains("status"))) return Task.FromResult(Fail());
             return Task.FromResult(args.Contains("view") ? Ok("{\"id\":\"R_private\",\"url\":\"https://github.com/example/private.project\"}") : Ok());
         }
         public async Task<CommandResult> GitAsync(string[] args, string directory, CancellationToken token)
