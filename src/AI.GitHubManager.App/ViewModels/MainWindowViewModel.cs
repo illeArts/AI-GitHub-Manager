@@ -31,7 +31,7 @@ public sealed class MainWindowViewModel : ViewModelBase
     private readonly UpdateCheckService _updateCheck = new();
     private readonly SafePullService _safePull;
     private readonly RemoteDetectionService _remoteDetection;
-    private readonly JsonProjectStore _store = new();
+    private readonly JsonProjectStore _store;
     private readonly ProjectImportService _import;
     private readonly GitService _importedGit;
     private readonly SafePullService _importedSafePull;
@@ -108,7 +108,7 @@ public sealed class MainWindowViewModel : ViewModelBase
         _installerBuild  = new InstallerBuildService(_runner);
         _safePull        = new SafePullService(_runner);
         _remoteDetection = new RemoteDetectionService(_git);
-        _store           = projectStore ?? _store;
+        _store           = projectStore ?? new JsonProjectStore();
         _import          = importService ?? new ProjectImportService(new ProjectImportCommands(_runner));
         var authenticatedRunner = new CommandRunner(useGitHubCliCredentials: true);
         _importedGit = new GitService(authenticatedRunner);

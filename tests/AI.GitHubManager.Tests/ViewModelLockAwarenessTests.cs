@@ -3,6 +3,7 @@ using AI.GitHubManager.App.ViewModels;
 using AI.GitHubManager.Core.Git;
 using AI.GitHubManager.Core.Process;
 using AI.GitHubManager.Core.Projects;
+using AI.GitHubManager.Data;
 using Xunit;
 
 namespace AI.GitHubManager.Tests;
@@ -72,7 +73,7 @@ public sealed class ViewModelLockAwarenessTests : IDisposable
         var lockGuard = new GitLockGuard(runner, detector);
         var gitService = new GitService(runner, RepositoryLockService.Shared, lockGuard);
 
-        var vm = new MainWindowViewModel(gitService);
+        var vm = new MainWindowViewModel(gitService, new JsonProjectStore(Path.Combine(_repoDir, "projects.json")), initialize: false);
         var project = new ManagedProject
         {
             Name = "lock-test",

@@ -37,7 +37,7 @@ public sealed class MainWindowViewModelAdvancedOperationTests : IDisposable
     /// or to the operation under test.
     /// </summary>
     private MainWindowViewModel NewViewModel() =>
-        new(new GitService(_runner), new JsonProjectStore(_storeFile));
+        new(new GitService(_runner), new JsonProjectStore(_storeFile), initialize: false);
 
     [Fact]
     public async Task ExecuteAdvancedOperationCommand_WithoutConfirmFuncWired_DoesNotExecute()

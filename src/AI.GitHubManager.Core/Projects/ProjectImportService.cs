@@ -59,7 +59,7 @@ public sealed class ProjectImportService(IProjectImportCommands commands)
             {
                 var physical = "/private" + alias;
                 if ((full == alias || full.StartsWith(alias + "/", StringComparison.Ordinal)) &&
-                    new DirectoryInfo(alias).LinkTarget == physical)
+                    new DirectoryInfo(alias).ResolveLinkTarget(returnFinalTarget: true)?.FullName == physical)
                     full = physical + full[alias.Length..];
             }
         }
